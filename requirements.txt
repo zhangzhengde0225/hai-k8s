@@ -1,0 +1,2 @@
+kubernetes==25.3.0  # 完全适配k8s v1.24，更多查看https://github.com/kubernetes-client/python?tab=readme-ov-file
+
