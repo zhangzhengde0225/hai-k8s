@@ -2,9 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HAI-K8S</title>
+    <script>
+      // Prevent theme flash on page load
+      (function() {
+        const theme = localStorage.getItem('theme') || 'light';
+        // Remove any existing theme classes
+        document.documentElement.classList.remove('light', 'dark');
+        // Add the current theme class
+        document.documentElement.classList.add(theme);
+
+        const language = localStorage.getItem('language') || 'zh';
+        document.documentElement.setAttribute('lang', language);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

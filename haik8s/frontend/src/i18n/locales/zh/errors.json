@@ -1,0 +1,9 @@
+{
+  "networkError": "网络错误，请重试",
+  "serverError": "服务器错误，请联系管理员",
+  "notFound": "资源未找到",
+  "unauthorized": "未授权，请登录",
+  "forbidden": "访问被拒绝",
+  "invalidInput": "输入无效",
+  "operationFailed": "操作失败"
+}

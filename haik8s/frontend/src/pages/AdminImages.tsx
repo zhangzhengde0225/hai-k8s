@@ -58,12 +58,12 @@ export default function AdminImages() {
     }
   };
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Images</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Images</h2>
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium cursor-pointer"
@@ -75,11 +75,11 @@ export default function AdminImages() {
       {showForm && (
         <form
           onSubmit={handleAdd}
-          className="bg-white rounded-lg shadow p-5 mb-6 space-y-4"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 mb-6 space-y-4"
         >
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Name
               </label>
               <input
@@ -87,11 +87,11 @@ export default function AdminImages() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Registry URL
               </label>
               <input
@@ -100,19 +100,19 @@ export default function AdminImages() {
                 onChange={(e) => setRegistryUrl(e.target.value)}
                 required
                 placeholder="ubuntu:22.04"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function AdminImages() {
               checked={gpuRequired}
               onChange={(e) => setGpuRequired(e.target.checked)}
             />
-            <label htmlFor="gpu" className="text-sm text-gray-700">
+            <label htmlFor="gpu" className="text-sm text-gray-700 dark:text-gray-300">
               GPU Required
             </label>
           </div>
@@ -135,10 +135,10 @@ export default function AdminImages() {
         </form>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-left text-gray-500 uppercase text-xs">
+            <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Registry URL</th>
               <th className="px-4 py-3">Description</th>
@@ -146,14 +146,14 @@ export default function AdminImages() {
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {images.map((img) => (
               <tr key={img.id}>
-                <td className="px-4 py-3 font-medium">{img.name}</td>
-                <td className="px-4 py-3 text-gray-500 font-mono text-xs">
+                <td className="px-4 py-3 font-medium dark:text-white">{img.name}</td>
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">
                   {img.registry_url}
                 </td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                   {img.description || '-'}
                 </td>
                 <td className="px-4 py-3">
@@ -162,13 +162,13 @@ export default function AdminImages() {
                       Yes
                     </span>
                   ) : (
-                    'No'
+                    <span className="dark:text-white">No</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => handleDelete(img.id)}
-                    className="text-red-600 hover:text-red-800 cursor-pointer"
+                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-600 cursor-pointer"
                   >
                     <Trash2 size={14} />
                   </button>

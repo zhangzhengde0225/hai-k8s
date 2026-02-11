@@ -1,0 +1,9 @@
+{
+  "networkError": "Network error, please try again",
+  "serverError": "Server error, please contact administrator",
+  "notFound": "Resource not found",
+  "unauthorized": "Unauthorized, please login",
+  "forbidden": "Access denied",
+  "invalidInput": "Invalid input",
+  "operationFailed": "Operation failed"
+}

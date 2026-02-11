@@ -1,6 +1,6 @@
 # HAI-K8S
 
-Kubernetes container management platform for IHEP AI infrastructure. Provides authenticated users with a web interface to create, manage, and access containers on the taichu-cluster (aicpu004, aicpu005, aicpu006).
+Kubernetes container open platform for IHEP AI infrastructure. Provides authenticated users with a web interface to create, manage, and access containers on the taichu-cluster (aicpu004, aicpu005, aicpu006).
 
 **Authors**: Zhengde ZHANG, Yiyu ZHANG
 **Version**: 0.0.1
@@ -10,10 +10,10 @@ Kubernetes container management platform for IHEP AI infrastructure. Provides au
 ## Architecture Overview
 
 ```
-Browser  <-->  React Frontend (Vite, port 5173)
+Browser  <-->  React Frontend (Vite, port 42901)
                    |  proxy /api
                    v
-              FastAPI Backend (uvicorn, port 8000)
+              FastAPI Backend (uvicorn, port 42900)
                    |
           +--------+--------+
           |                 |
@@ -29,7 +29,8 @@ Browser  <-->  React Frontend (Vite, port 5173)
 - FastAPI (async Python web framework)
 - SQLModel (ORM based on SQLAlchemy + Pydantic)
 - Kubernetes Python SDK (v25.3.0)
-- IHEP SSO OAuth2 authentication
+- IHEP SSO OAuth2 authentication + Local password authentication
+- Passlib + bcrypt (password hashing)
 - WebSocket terminal streaming
 
 **Frontend:**
@@ -45,7 +46,8 @@ Browser  <-->  React Frontend (Vite, port 5173)
 ## Features
 
 ### User Features
-- **SSO Authentication**: Login via IHEP SSO (OAuth2)
+- **Dual Authentication**: Login via IHEP SSO or local username/password
+- **Default Admin Account**: Pre-configured admin user (username: `admin`, password: `admin123`)
 - **Container Management**: Create, start, stop, delete containers
 - **Resource Control**: Configure CPU, memory, GPU per container
 - **SSH Access**: Optional SSH via NodePort (30000-32767)
@@ -114,8 +116,8 @@ IHEP_SSO_CLIENT_ID=your-client-id
 IHEP_SSO_CLIENT_SECRET=your-client-secret
 IHEP_SSO_AUTHORIZE_URL=https://login.ihep.ac.cn/oauth2/authorize
 IHEP_SSO_TOKEN_URL=https://login.ihep.ac.cn/oauth2/token
-IHEP_SSO_CALLBACK_URL=http://localhost:8000/api/auth/umt/callback
-FRONTEND_CALLBACK_URL=http://localhost:5173/auth/callback
+IHEP_SSO_CALLBACK_URL=http://localhost:42900/api/auth/umt/callback
+FRONTEND_CALLBACK_URL=http://localhost:42901/auth/callback
 
 # Database (default: SQLite in backend directory)
 DATABASE_URL=sqlite:///haik8s.db
@@ -156,12 +158,17 @@ This creates three default images:
 ```bash
 ./start_backend.sh
 # Or manually:
-# cd haik8s/backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# cd haik8s/backend && uvicorn main:app --host 0.0.0.0 --port 42900 --reload
 ```
 
-Backend will be available at: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
-- Health check: http://localhost:8000/api/health
+Backend will be available at: http://localhost:42900
+- Swagger UI: http://localhost:42900/docs
+- Health check: http://localhost:42900/api/health
+
+**First Run**: The backend will automatically create:
+- Database tables
+- Default admin user (username: `admin`, password: `admin123`)
+- ⚠️ **Important**: Change the default password after first login!
 
 #### Start Frontend (Terminal 2)
 
@@ -171,7 +178,7 @@ Backend will be available at: http://localhost:8000
 # cd haik8s/frontend && npm run dev
 ```
 
-Frontend will be available at: http://localhost:5173
+Frontend will be available at: http://localhost:42901
 
 ### Production Build
 
@@ -185,8 +192,50 @@ npx serve -s dist -l 5173
 
 # Run backend without --reload
 cd haik8s/backend
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 42900
 ```
+
+---
+
+## Authentication
+
+HAI-K8S supports **two login methods**:
+
+### 1. Local Login (Default for Development)
+
+**Default Admin Account:**
+- Username: `admin`
+- Password: `admin123`
+- Role: Administrator
+
+⚠️ **Security Warning**: Change the default password after first login!
+
+**Login Process:**
+1. Navigate to http://localhost:42901
+2. Click "HAI-K8S" title to toggle login mode to "本地账号登录"
+3. Enter username and password
+4. Click "登录"
+
+### 2. IHEP SSO Login
+
+**Requirements:**
+- IHEP SSO Client ID and Secret
+- Configured callback URLs
+
+**Login Process:**
+1. Navigate to http://localhost:42901
+2. Click "统一认证登录" (or ensure login mode is SSO)
+3. Redirected to IHEP SSO login page
+4. Authenticate with IHEP credentials
+5. Redirected back to dashboard
+
+**First SSO Login:**
+New users are created automatically with default role `user` and quotas:
+- CPU: 4 cores
+- Memory: 8 GB
+- GPU: 1
+
+For more details, see [Local Authentication Guide](docs/LOCAL_AUTH.md)
 
 ---
 
@@ -194,15 +243,18 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ### First Login
 
-1. Navigate to http://localhost:5173
-2. Click "Login with IHEP SSO"
-3. Authenticate with IHEP credentials
-4. Redirect back to dashboard
+#### Using Local Account
+1. Navigate to http://localhost:42901
+2. Toggle to "本地账号登录" by clicking "HAI-K8S" title
+3. Login with admin/admin123
+4. Change password (feature to be implemented)
 
-New users are created automatically with default role `user` and quotas:
-- CPU: 4 cores
-- Memory: 8 GB
-- GPU: 1
+#### Using IHEP SSO
+1. Navigate to http://localhost:42901
+2. Ensure login mode is "统一认证登录"
+3. Click "统一认证登录"
+4. Authenticate with IHEP credentials
+5. Redirect back to dashboard
 
 ### Creating a Container
 
@@ -325,6 +377,7 @@ hai-k8s/
 ### Authentication
 - `GET /api/auth/login/sso` - Initiate SSO login
 - `GET /api/auth/umt/callback` - OAuth2 callback
+- `POST /api/auth/login/local` - Local username/password login
 
 ### Containers
 - `GET /api/containers` - List user's containers
@@ -355,8 +408,8 @@ hai-k8s/
 ## Database Schema
 
 ### Users
-- `id`, `username`, `email`, `full_name`
-- `role` (admin/user), `auth_provider` (ihep_sso), `sso_id`
+- `id`, `username`, `email`, `full_name`, `password_hash`
+- `role` (admin/user), `auth_provider` (ihep_sso/local), `sso_id`
 - `is_active`, `created_at`, `last_login_at`
 - **Quotas**: `cpu_quota`, `memory_quota`, `gpu_quota`
 
@@ -482,10 +535,11 @@ UPDATE users SET role='admin' WHERE username='admin-user';
 
 ### Testing Without SSO
 
-For development, you can temporarily add local auth:
-1. Create `auth/local_router.py` (username/password auth)
-2. Add to `main.py` routers
-3. Use `/api/auth/login/local` endpoint
+HAI-K8S includes local authentication for development and testing:
+1. Start backend - default admin user is created automatically
+2. Login with username: `admin`, password: `admin123`
+3. Toggle login mode by clicking "HAI-K8S" title on login page
+4. See [Local Authentication Guide](docs/LOCAL_AUTH.md) for details
 
 ---
 

@@ -1,0 +1,16 @@
+{
+  "appName": "HAI-K8S",
+  "appTitle": "Container Management Platform",
+  "language": "Language",
+  "chinese": "中文",
+  "english": "English",
+  "theme": "Theme",
+  "lightMode": "Light Mode",
+  "darkMode": "Dark Mode",
+  "myContainers": "My Containers",
+  "newContainer": "New Container",
+  "admin": "Admin",
+  "users": "Users",
+  "images": "Images",
+  "cluster": "Cluster"
+}

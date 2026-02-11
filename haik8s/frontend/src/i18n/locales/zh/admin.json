@@ -1,0 +1,15 @@
+{
+  "userManagement": "用户管理",
+  "imageManagement": "镜像管理",
+  "clusterManagement": "集群管理",
+  "totalUsers": "总用户数",
+  "activeUsers": "活跃用户",
+  "totalImages": "总镜像数",
+  "nodes": "节点",
+  "addUser": "添加用户",
+  "editUser": "编辑用户",
+  "deleteUser": "删除用户",
+  "addImage": "添加镜像",
+  "editImage": "编辑镜像",
+  "deleteImage": "删除镜像"
+}

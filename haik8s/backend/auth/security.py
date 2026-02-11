@@ -1,5 +1,5 @@
 """
-JWT token management for HAI-K8S
+JWT token management and password hashing for HAI-K8S
 
 Ported from BubbleTracker_V3
 Author: Zhengde ZHANG
@@ -7,8 +7,12 @@ Author: Zhengde ZHANG
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 from db.models import User, UserRole
 
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration (set from config at startup)
 JWT_SECRET_KEY = ""
@@ -22,6 +26,16 @@ def set_jwt_config(secret_key: str, algorithm: str = "HS256", expire_minutes: in
     JWT_SECRET_KEY = secret_key
     JWT_ALGORITHM = algorithm
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES = expire_minutes
+
+
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -> str:

@@ -1,11 +1,14 @@
 """
 CRUD operations for HAI-K8S database
 """
+import logging
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Session, select
 
 from db.models import User, Container, Image, ContainerStatus, UserRole, AuthProvider
+
+logger = logging.getLogger(__name__)
 
 
 # ── User CRUD ──────────────────────────────────────────────────────────────
@@ -38,6 +41,30 @@ def create_sso_user(
         role=UserRole.USER,
         auth_provider=AuthProvider.IHEP_SSO,
         sso_id=sso_id,
+        last_login_at=datetime.utcnow(),
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def create_local_user(
+    session: Session,
+    username: str,
+    email: str,
+    password_hash: str,
+    full_name: Optional[str] = None,
+    role: UserRole = UserRole.USER,
+) -> User:
+    """Create a local user with password"""
+    user = User(
+        username=username,
+        email=email,
+        full_name=full_name or username,
+        password_hash=password_hash,
+        role=role,
+        auth_provider=AuthProvider.LOCAL,
         last_login_at=datetime.utcnow(),
     )
     session.add(user)
@@ -157,12 +184,39 @@ def find_available_nodeport(session: Session, range_start: int = 30000, range_en
 
 # ── Image CRUD ─────────────────────────────────────────────────────────────
 
+def get_image_by_name(session: Session, name: str) -> Optional[Image]:
+    """Get image by name (including inactive ones)"""
+    statement = select(Image).where(Image.name == name)
+    return session.exec(statement).first()
+
+
 def create_image(session: Session, **kwargs) -> Image:
-    image = Image(**kwargs)
-    session.add(image)
-    session.commit()
-    session.refresh(image)
-    return image
+    """Create a new image or reactivate existing one with the same name"""
+    # Check if an inactive image with the same name exists
+    existing_image = get_image_by_name(session, kwargs.get('name'))
+
+    if existing_image:
+        # Reactivate and update the existing image
+        logger.info(f"Reactivating image: {existing_image.name} (ID: {existing_image.id})")
+        existing_image.registry_url = kwargs.get('registry_url', existing_image.registry_url)
+        existing_image.description = kwargs.get('description', existing_image.description)
+        existing_image.default_cmd = kwargs.get('default_cmd', existing_image.default_cmd)
+        existing_image.gpu_required = kwargs.get('gpu_required', existing_image.gpu_required)
+        existing_image.is_active = True
+        existing_image.created_at = datetime.utcnow()  # Update timestamp
+
+        session.add(existing_image)
+        session.commit()
+        session.refresh(existing_image)
+        return existing_image
+    else:
+        # Create new image
+        logger.info(f"Creating new image: {kwargs.get('name')}")
+        image = Image(**kwargs)
+        session.add(image)
+        session.commit()
+        session.refresh(image)
+        return image
 
 
 def get_image_by_id(session: Session, image_id: int) -> Optional[Image]:

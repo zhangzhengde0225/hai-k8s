@@ -1,0 +1,16 @@
+{
+  "appName": "HAI-K8S",
+  "appTitle": "容器管理平台",
+  "language": "语言",
+  "chinese": "中文",
+  "english": "English",
+  "theme": "主题",
+  "lightMode": "浅色模式",
+  "darkMode": "深色模式",
+  "myContainers": "我的容器",
+  "newContainer": "新建容器",
+  "admin": "管理员",
+  "users": "用户管理",
+  "images": "镜像管理",
+  "cluster": "集群管理"
+}

@@ -38,6 +38,7 @@ export default function Terminal({ containerId, token }: Props) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      term.write('\r\n[Connected to container terminal]\r\n\r\n');
       // Send initial resize
       const dims = fitAddon.proposeDimensions();
       if (dims) {
@@ -49,12 +50,18 @@ export default function Terminal({ containerId, token }: Props) {
       term.write(event.data);
     };
 
-    ws.onclose = () => {
-      term.write('\r\n[Connection closed]\r\n');
+    ws.onclose = (event) => {
+      if (event.code !== 1000) {
+        // Abnormal closure
+        term.write(`\r\n[Connection closed: ${event.reason || 'Unknown error'}]\r\n`);
+      } else {
+        term.write('\r\n[Connection closed]\r\n');
+      }
     };
 
-    ws.onerror = () => {
-      term.write('\r\n[Connection error]\r\n');
+    ws.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      term.write('\r\n[Connection error - check browser console for details]\r\n');
     };
 
     // Forward terminal input to WebSocket

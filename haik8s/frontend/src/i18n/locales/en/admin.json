@@ -1,0 +1,15 @@
+{
+  "userManagement": "User Management",
+  "imageManagement": "Image Management",
+  "clusterManagement": "Cluster Management",
+  "totalUsers": "Total Users",
+  "activeUsers": "Active Users",
+  "totalImages": "Total Images",
+  "nodes": "Nodes",
+  "addUser": "Add User",
+  "editUser": "Edit User",
+  "deleteUser": "Delete User",
+  "addImage": "Add Image",
+  "editImage": "Edit Image",
+  "deleteImage": "Delete Image"
+}

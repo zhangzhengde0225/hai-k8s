@@ -16,6 +16,7 @@ class UserRole(str, Enum):
 
 class AuthProvider(str, Enum):
     IHEP_SSO = "ihep_sso"
+    LOCAL = "local"
 
 
 class ContainerStatus(str, Enum):
@@ -33,6 +34,7 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True, index=True)
     email: str = Field(unique=True)
     full_name: Optional[str] = None
+    password_hash: Optional[str] = None  # For local authentication
     role: UserRole = Field(default=UserRole.USER)
     auth_provider: AuthProvider = Field(default=AuthProvider.IHEP_SSO)
     sso_id: Optional[str] = Field(default=None, unique=True, index=True)

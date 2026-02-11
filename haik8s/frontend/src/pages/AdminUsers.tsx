@@ -43,15 +43,15 @@ export default function AdminUsers() {
     }
   };
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Users</h2>
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Users</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-left text-gray-500 uppercase text-xs">
+            <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
               <th className="px-4 py-3">Username</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
@@ -63,11 +63,11 @@ export default function AdminUsers() {
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {users.map((u) => (
               <tr key={u.id}>
-                <td className="px-4 py-3 font-medium">{u.username}</td>
-                <td className="px-4 py-3 text-gray-500">{u.email}</td>
+                <td className="px-4 py-3 font-medium dark:text-white">{u.username}</td>
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
                 <td className="px-4 py-3">
                   {editing === u.id ? (
                     <select
@@ -75,7 +75,7 @@ export default function AdminUsers() {
                       onChange={(e) =>
                         setEditData({ ...editData, role: e.target.value })
                       }
-                      className="border rounded px-1 py-0.5 text-xs"
+                      className="border dark:border-gray-700 rounded px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
                     >
                       <option value="user">user</option>
                       <option value="admin">admin</option>
@@ -102,12 +102,12 @@ export default function AdminUsers() {
                       }
                     />
                   ) : u.is_active ? (
-                    <span className="text-green-600">Yes</span>
+                    <span className="text-green-600 dark:text-green-400">Yes</span>
                   ) : (
-                    <span className="text-red-600">No</span>
+                    <span className="text-red-600 dark:text-red-400">No</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 dark:text-white">
                   {editing === u.id ? (
                     <input
                       type="number"
@@ -118,13 +118,13 @@ export default function AdminUsers() {
                           cpu_quota: Number(e.target.value),
                         })
                       }
-                      className="border rounded w-16 px-1 py-0.5 text-xs"
+                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
                     />
                   ) : (
                     u.cpu_quota
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 dark:text-white">
                   {editing === u.id ? (
                     <input
                       type="number"
@@ -135,13 +135,13 @@ export default function AdminUsers() {
                           memory_quota: Number(e.target.value),
                         })
                       }
-                      className="border rounded w-16 px-1 py-0.5 text-xs"
+                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
                     />
                   ) : (
                     u.memory_quota
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 dark:text-white">
                   {editing === u.id ? (
                     <input
                       type="number"
@@ -152,13 +152,13 @@ export default function AdminUsers() {
                           gpu_quota: Number(e.target.value),
                         })
                       }
-                      className="border rounded w-16 px-1 py-0.5 text-xs"
+                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
                     />
                   ) : (
                     u.gpu_quota
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
                   {u.cpu_used}/{u.memory_used}/{u.gpu_used}
                 </td>
                 <td className="px-4 py-3">
@@ -172,7 +172,7 @@ export default function AdminUsers() {
                       </button>
                       <button
                         onClick={() => setEditing(null)}
-                        className="text-xs px-2 py-1 bg-gray-200 rounded cursor-pointer"
+                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 dark:text-white rounded cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -180,7 +180,7 @@ export default function AdminUsers() {
                   ) : (
                     <button
                       onClick={() => startEdit(u)}
-                      className="text-xs px-2 py-1 text-blue-600 hover:underline cursor-pointer"
+                      className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                     >
                       Edit
                     </button>

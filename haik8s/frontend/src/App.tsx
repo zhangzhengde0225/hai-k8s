@@ -1,7 +1,10 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './auth/AuthContext';
+import { useThemeStore } from './stores/themeStore';
+import { useLanguageStore } from './stores/languageStore';
 import LoginPage from './auth/LoginPage';
 import CallbackPage from './auth/CallbackPage';
 import Layout from './components/Layout';
@@ -15,10 +18,18 @@ import AdminCluster from './pages/AdminCluster';
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
+  const loadTheme = useThemeStore((s) => s.loadFromStorage);
+  const loadLanguage = useLanguageStore((s) => s.loadFromStorage);
+  const { i18n } = useTranslation();
 
   useEffect(() => {
     loadFromStorage();
-  }, [loadFromStorage]);
+    loadTheme();
+    loadLanguage();
+
+    const currentLanguage = useLanguageStore.getState().language;
+    i18n.changeLanguage(currentLanguage);
+  }, [loadFromStorage, loadTheme, loadLanguage, i18n]);
 
   return (
     <BrowserRouter>

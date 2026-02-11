@@ -20,7 +20,7 @@ from schemas.container import ContainerResponse
 from k8s.client import get_core_v1
 
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 @router.get("/users", response_model=list[UserResponse])

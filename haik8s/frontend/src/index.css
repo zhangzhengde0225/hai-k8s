@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #1976d2;
+  --color-primary-light: #e3f2fd;
+  --color-bg-light: #f8fafd;
+  --color-bg-dark: #0f1419;
+  --color-surface-light: #ffffff;
+  --color-surface-dark: #1a1f26;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
 }
+
+

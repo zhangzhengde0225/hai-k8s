@@ -7,7 +7,16 @@ interface Props {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: Props) {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isLoading } = useAuthStore();
+
+  // Wait for auth state to load from storage
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
