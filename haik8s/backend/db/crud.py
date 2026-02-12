@@ -6,7 +6,10 @@ from datetime import datetime
 from typing import Optional
 from sqlmodel import Session, select
 
-from db.models import User, Container, Image, ContainerStatus, UserRole, AuthProvider
+from db.models import (
+    User, Container, Image, ApplicationConfig,
+    ContainerStatus, UserRole, AuthProvider, ConfigStatus
+)
 
 logger = logging.getLogger(__name__)
 
@@ -238,3 +241,140 @@ def delete_image(session: Session, image_id: int) -> bool:
     session.add(image)
     session.commit()
     return True
+
+
+# ── ApplicationConfig CRUD ────────────────────────────────────────────────
+
+def create_or_update_app_config(
+    session: Session,
+    user_id: int,
+    app_id: str,
+    config_name: str,
+    **kwargs
+) -> ApplicationConfig:
+    """Create or update application configuration"""
+    # Check if config exists
+    existing = session.exec(
+        select(ApplicationConfig).where(
+            ApplicationConfig.user_id == user_id,
+            ApplicationConfig.application_id == app_id,
+            ApplicationConfig.config_name == config_name
+        )
+    ).first()
+
+    if existing:
+        # Update existing config
+        for key, value in kwargs.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
+        existing.updated_at = datetime.utcnow()
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return existing
+    else:
+        # Create new config
+        config = ApplicationConfig(
+            user_id=user_id,
+            application_id=app_id,
+            config_name=config_name,
+            **kwargs
+        )
+        session.add(config)
+        session.commit()
+        session.refresh(config)
+        return config
+
+
+def get_app_config(
+    session: Session,
+    user_id: int,
+    app_id: str,
+    config_id: int
+) -> Optional[ApplicationConfig]:
+    """Get specific application configuration"""
+    return session.exec(
+        select(ApplicationConfig).where(
+            ApplicationConfig.id == config_id,
+            ApplicationConfig.user_id == user_id,
+            ApplicationConfig.application_id == app_id,
+            ApplicationConfig.status != ConfigStatus.ARCHIVED
+        )
+    ).first()
+
+
+def list_app_configs(
+    session: Session,
+    user_id: int,
+    app_id: str
+) -> list[ApplicationConfig]:
+    """List all configurations for a specific application"""
+    return list(session.exec(
+        select(ApplicationConfig).where(
+            ApplicationConfig.user_id == user_id,
+            ApplicationConfig.application_id == app_id,
+            ApplicationConfig.status != ConfigStatus.ARCHIVED
+        ).order_by(ApplicationConfig.created_at.desc())
+    ).all())
+
+
+def delete_app_config(session: Session, config_id: int) -> bool:
+    """Soft delete application configuration"""
+    config = session.get(ApplicationConfig, config_id)
+    if not config:
+        return False
+    config.status = ConfigStatus.ARCHIVED
+    config.updated_at = datetime.utcnow()
+    session.add(config)
+    session.commit()
+    return True
+
+
+def set_default_config(
+    session: Session,
+    user_id: int,
+    app_id: str,
+    config_id: int
+) -> bool:
+    """Set a configuration as default and unset others"""
+    # Get the config to set as default
+    config = session.exec(
+        select(ApplicationConfig).where(
+            ApplicationConfig.id == config_id,
+            ApplicationConfig.user_id == user_id,
+            ApplicationConfig.application_id == app_id
+        )
+    ).first()
+
+    if not config:
+        return False
+
+    # Unset all other configs as default
+    other_configs = session.exec(
+        select(ApplicationConfig).where(
+            ApplicationConfig.user_id == user_id,
+            ApplicationConfig.application_id == app_id,
+            ApplicationConfig.id != config_id
+        )
+    ).all()
+
+    for other in other_configs:
+        other.is_default = False
+        session.add(other)
+
+    # Set this config as default
+    config.is_default = True
+    session.add(config)
+
+    session.commit()
+    return True
+
+
+def get_config_instance_count(session: Session, config_id: int) -> int:
+    """Count active instances for a configuration"""
+    return len(session.exec(
+        select(Container).where(
+            Container.config_id == config_id,
+            Container.status != ContainerStatus.DELETED
+        )
+    ).all())

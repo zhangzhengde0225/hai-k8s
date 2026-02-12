@@ -28,6 +28,7 @@ from api.terminal import router as terminal_router
 from api.users import router as users_router
 from api.images import router as images_router
 from api.admin import router as admin_router
+from api.applications import router as applications_router
 
 
 @asynccontextmanager
@@ -68,6 +69,7 @@ app.include_router(terminal_router)
 app.include_router(users_router)
 app.include_router(images_router)
 app.include_router(admin_router)
+app.include_router(applications_router)
 
 
 # Legacy callback redirect for backward compatibility

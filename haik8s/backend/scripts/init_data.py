@@ -12,6 +12,22 @@ from sqlmodel import Session, select
 
 
 DEFAULT_IMAGES = [
+    # Application Images
+    {
+        "name": "hai-openclaw",
+        "registry_url": "registry.example.com/hai-openclaw:latest",  # 请替换为实际的镜像地址
+        "description": "OpenClaw AI Assistant Application",
+        "default_cmd": "/bin/bash",
+        "gpu_required": False,
+    },
+    {
+        "name": "hai-opendrsai",
+        "registry_url": "registry.example.com/hai-opendrsai:latest",  # 请替换为实际的镜像地址
+        "description": "OpenDrSai AI Research Assistant",
+        "default_cmd": "/bin/bash",
+        "gpu_required": True,
+    },
+    # System Images
     {
         "name": "Ubuntu 22.04",
         "registry_url": "ubuntu:22.04",

@@ -98,16 +98,16 @@ export default function CreateContainer() {
   const gpuRemaining = (user?.gpu_quota ?? 0) - (user?.gpu_used ?? 0);
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+    <div className="max-w-xl mx-auto">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-4 md:mb-6">
         {t('createContainerResource')}
       </h2>
 
-      <div className="bg-blue-50 dark:bg-blue-900 rounded-md p-3 mb-6 text-sm text-blue-700 dark:text-blue-300">
+      <div className="bg-blue-50 dark:bg-blue-900 rounded-md p-3 mb-4 md:mb-6 text-xs md:text-sm text-blue-700 dark:text-blue-300">
         {t('remainingQuota')} — {t('cpu')}: {cpuRemaining} {t('cores')}, {t('memory')}: {memRemaining} GB, {t('gpu')}: {gpuRemaining}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5 bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('containerName')}
@@ -145,7 +145,7 @@ export default function CreateContainer() {
           </select>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {t('cpuCores')}
@@ -206,7 +206,7 @@ export default function CreateContainer() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium cursor-pointer"
+          className="w-full py-2 md:py-2.5 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium cursor-pointer"
         >
           {submitting ? t('creating') : t('createContainer')}
         </button>

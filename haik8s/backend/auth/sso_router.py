@@ -18,7 +18,7 @@ from db.crud import get_user_by_sso_id, create_sso_user, update_last_login
 from auth.security import create_access_token
 
 
-router = APIRouter(prefix="/api/auth")
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 # In-memory CSRF state storage
 sso_states: dict[str, bool] = {}

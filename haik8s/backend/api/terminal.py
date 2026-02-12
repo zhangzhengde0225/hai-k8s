@@ -16,7 +16,7 @@ from auth.security import decode_access_token
 from k8s.terminal import exec_into_pod
 
 
-router = APIRouter(tags=["terminal"])
+router = APIRouter(tags=["Terminal"])
 logger = logging.getLogger(__name__)
 
 

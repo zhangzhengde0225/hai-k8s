@@ -11,7 +11,7 @@ from auth.dependencies import get_current_user
 from schemas.user import UserResponse
 
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse)

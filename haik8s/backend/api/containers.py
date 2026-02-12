@@ -25,7 +25,7 @@ from k8s.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_p
 from k8s.services import create_ssh_service, delete_service
 
 
-router = APIRouter(prefix="/api/containers", tags=["containers"])
+router = APIRouter(prefix="/api/containers", tags=["Containers"])
 
 
 def _sanitize_k8s_name(name: str) -> str:

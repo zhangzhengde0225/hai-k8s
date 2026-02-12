@@ -28,6 +28,10 @@ export interface Container {
   ssh_node_port: number | null;
   created_at: string;
   updated_at: string;
+  // 新增字段
+  config_id: number | null;
+  config_name: string | null;
+  application_id: string | null;
 }
 
 export interface ContainerDetail extends Container {
@@ -48,6 +52,18 @@ export interface Image {
   gpu_required: boolean;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+
+  // Enhanced metadata fields
+  version: string | null;
+  tags: string[] | null;  // Tag array
+  env_vars: Record<string, string> | null;  // Environment variables object
+  ports: number[] | null;  // Port array
+  recommended_resources: {  // Recommended resources
+    cpu?: number;
+    memory?: number;
+    gpu?: number;
+  } | null;
 }
 
 export interface ClusterNode {
@@ -59,4 +75,66 @@ export interface ClusterNode {
   cpu_allocatable: string;
   memory_allocatable: string;
   gpu_allocatable: string;
+}
+
+export interface Application {
+  id: string;
+  name: string;
+  description: string;
+  status: 'running' | 'stopped' | 'error' | 'unconfigured' | 'configured';
+  is_configured: boolean;
+  version: string;
+  endpoint?: string;
+  pods?: number;
+  replicas?: number;
+  total_instances?: number;
+  defaultImage?: string;  // Default recommended image name (e.g., "Hai-OpenClaw")
+  // Configuration information
+  config?: {
+    id: number;
+    image_id: number;
+    image_name: string | null;
+    cpu_request: number;
+    memory_request: number;
+    gpu_request: number;
+    ssh_enabled: boolean;
+    storage_path: string | null;
+    status: 'draft' | 'validated' | 'archived';
+  } | null;
+}
+
+export interface DeployConfig {
+  name: string;
+  imageId: number;
+  cpu: number;
+  memory: number;
+  gpu: number;
+  sshEnabled: boolean;
+}
+
+// ==================== 应用配置相关类型 ====================
+
+export interface AppConfig {
+  id: number;
+  application_id: string;
+  image_id: number;
+  image_name: string;
+  cpu_request: number;
+  memory_request: number;
+  gpu_request: number;
+  ssh_enabled: boolean;
+  storage_path: string | null;
+  status: 'draft' | 'validated' | 'archived';
+  instance_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveConfigData {
+  imageId: number;
+  cpu: number;
+  memory: number;
+  gpu: number;
+  sshEnabled: boolean;
+  storagePath?: string;
 }

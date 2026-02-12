@@ -15,7 +15,7 @@ from db.crud import get_user_by_username, update_last_login
 from auth.security import verify_password, create_access_token
 
 
-router = APIRouter(prefix="/api/auth")
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 class LoginRequest(BaseModel):

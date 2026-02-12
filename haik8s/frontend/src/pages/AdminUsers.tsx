@@ -47,24 +47,25 @@ export default function AdminUsers() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Users</h2>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
-              <th className="px-4 py-3">Username</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Active</th>
-              <th className="px-4 py-3">CPU Quota</th>
-              <th className="px-4 py-3">Mem Quota</th>
-              <th className="px-4 py-3">GPU Quota</th>
-              <th className="px-4 py-3">Usage (C/M/G)</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {users.map((u) => (
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-4 md:mb-6">Users</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Username</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Email</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Role</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Active</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">CPU Quota</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Mem Quota</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">GPU Quota</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Usage (C/M/G)</th>
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {users.map((u) => (
               <tr key={u.id}>
                 <td className="px-4 py-3 font-medium dark:text-white">{u.username}</td>
                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
@@ -191,6 +192,7 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

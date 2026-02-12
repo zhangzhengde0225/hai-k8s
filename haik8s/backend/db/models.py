@@ -6,7 +6,7 @@ Author: Zhengde ZHANG
 from datetime import datetime
 from typing import Optional
 from enum import Enum
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, UniqueConstraint
 
 
 class UserRole(str, Enum):
@@ -25,6 +25,13 @@ class ContainerStatus(str, Enum):
     STOPPED = "stopped"
     FAILED = "failed"
     DELETED = "deleted"
+
+
+class ConfigStatus(str, Enum):
+    """配置状态"""
+    DRAFT = "draft"          # 草稿
+    VALIDATED = "validated"  # 已校验（可启动）
+    ARCHIVED = "archived"    # 已归档
 
 
 class User(SQLModel, table=True):
@@ -46,6 +53,7 @@ class User(SQLModel, table=True):
     last_login_at: Optional[datetime] = None
 
     containers: list["Container"] = Relationship(back_populates="user")
+    application_configs: list["ApplicationConfig"] = Relationship(back_populates="user")
 
 
 class Image(SQLModel, table=True):
@@ -59,6 +67,14 @@ class Image(SQLModel, table=True):
     gpu_required: bool = Field(default=False)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Enhanced metadata fields
+    version: Optional[str] = None  # Version like "v1.0.0", "latest"
+    tags: Optional[str] = None  # JSON string storing tag array, e.g. '["openclaw", "gpu", "production"]'
+    env_vars: Optional[str] = None  # JSON string for environment variables, e.g. '{"PYTHON_VERSION": "3.11"}'
+    ports: Optional[str] = None  # JSON string for port list, e.g. '[8080, 8443]'
+    recommended_resources: Optional[str] = None  # JSON string for recommended resources, e.g. '{"cpu": 2.0, "memory": 4.0, "gpu": 0}'
 
     containers: list["Container"] = Relationship(back_populates="image")
 
@@ -82,5 +98,49 @@ class Container(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # 新增字段
+    config_id: Optional[int] = Field(default=None, foreign_key="application_configs.id")
+    application_id: Optional[str] = Field(default=None, index=True)
+
     user: Optional[User] = Relationship(back_populates="containers")
     image: Optional[Image] = Relationship(back_populates="containers")
+    config: Optional["ApplicationConfig"] = Relationship(back_populates="instances")
+
+
+class ApplicationConfig(SQLModel, table=True):
+    """应用配置表 - 存储用户的应用配置（每个用户每个应用只能有1个配置）"""
+    __tablename__ = "application_configs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # 关联关系 - 每个用户每个应用只能有1个配置
+    user_id: int = Field(foreign_key="users.id")
+    application_id: str = Field(index=True)  # "openclaw", "opendrsai"
+    image_id: int = Field(foreign_key="images.id")
+
+    # 资源配置
+    cpu_request: float = Field(default=2.0)
+    memory_request: float = Field(default=4.0)
+    gpu_request: int = Field(default=0)
+    ssh_enabled: bool = Field(default=True)
+    storage_path: Optional[str] = None
+
+    # 状态
+    status: ConfigStatus = Field(default=ConfigStatus.DRAFT)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # 关系
+    user: Optional[User] = Relationship(back_populates="application_configs")
+    image: Optional[Image] = Relationship()
+    instances: list["Container"] = Relationship(back_populates="config")
+
+    class Config:
+        """SQLModel配置"""
+        table = True
+        arbitrary_types_allowed = True
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'application_id',
+                        name='uq_user_app'),
+    )

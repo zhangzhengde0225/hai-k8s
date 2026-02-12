@@ -10,6 +10,9 @@ import CallbackPage from './auth/CallbackPage';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
+import Overview from './pages/Overview';
+import AppService from './pages/AppService';
+import Documentation from './pages/Documentation';
 import CreateContainer from './pages/CreateContainer';
 import ContainerDetail from './pages/ContainerDetail';
 import AdminUsers from './pages/AdminUsers';
@@ -45,9 +48,21 @@ export default function App() {
             </ProtectedRoute>
           }
         >
+          {/* 资源总览 */}
+          <Route path="/overview" element={<Overview />} />
+
+          {/* 产品中心 - 容器服务 */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/containers/new" element={<CreateContainer />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
+
+          {/* 产品中心 - 应用服务 */}
+          <Route path="/apps" element={<AppService />} />
+
+          {/* 参考文档 */}
+          <Route path="/docs" element={<Documentation />} />
+
+          {/* 管理员 */}
           <Route
             path="/admin/users"
             element={

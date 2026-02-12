@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { API_BASE } from '../config';
 import { useAuthStore } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { HelpCircle } from 'lucide-react';
 
 type LoginTab = 'sso' | 'local';
 
@@ -137,91 +138,61 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900" style={{ display: "flex", minHeight: "100vh" }}>
-      {/* 左侧 */}
-      <div style={{
-        background: "linear-gradient(135deg, #2060e8 80%, #1a3fa7 100%)",
-        color: "#fff",
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        padding: "60px 50px"
-      }}>
-        <div style={{ fontSize: 32, fontWeight: "bold", marginBottom: 20 }}>{t('appName', { ns: 'common' })}</div>
-        <div style={{ fontSize: 22, marginBottom: 30, letterSpacing: 2 }}>{t('platformSubtitle')}</div>
-        <ul style={{ fontSize: 16, lineHeight: "2", paddingLeft: 20, margin: 0 }}>
-          <li style={{ marginBottom: 14 }}>
-            <span style={{ color: "#5ff", marginRight: 6 }}>●</span>
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* 左侧介绍 - 移动端隐藏或显示为顶部横幅 */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-blue-600 to-blue-800 text-white flex-col justify-center px-8 py-12 xl:px-16">
+        <div className="text-3xl xl:text-4xl font-bold mb-5">{t('appName', { ns: 'common' })}</div>
+        <div className="text-xl xl:text-2xl mb-8 tracking-wide">{t('platformSubtitle')}</div>
+        <ul className="text-base xl:text-lg leading-relaxed pl-5 space-y-3">
+          <li className="mb-3">
+            <span className="text-cyan-300 mr-2">●</span>
             {t('featureConvenient')}
-            <div style={{ fontSize: 13, color: "#c3e6ff", marginLeft: 18 }}>
+            <div className="text-sm text-blue-100 ml-5 mt-1">
               {t('featureConvenientDesc')}
             </div>
           </li>
-          <li style={{ marginBottom: 14 }}>
-            <span style={{ color: "#5ff", marginRight: 6 }}>●</span>
+          <li className="mb-3">
+            <span className="text-cyan-300 mr-2">●</span>
             {t('featurePowerful')}
-            <div style={{ fontSize: 13, color: "#c3e6ff", marginLeft: 18 }}>
+            <div className="text-sm text-blue-100 ml-5 mt-1">
               {t('featurePowerfulDesc')}
             </div>
           </li>
           <li>
-            <span style={{ color: "#5ff", marginRight: 6 }}>●</span>
+            <span className="text-cyan-300 mr-2">●</span>
             {t('featureSecure')}
-            <div style={{ fontSize: 13, color: "#c3e6ff", marginLeft: 18 }}>
+            <div className="text-sm text-blue-100 ml-5 mt-1">
               {t('featureSecureDesc')}
             </div>
           </li>
         </ul>
       </div>
 
-      {/* 右侧 */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white dark:bg-gray-800" style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center"
-      }}>
+      {/* 移动端顶部Logo横幅 */}
+      <div className="lg:hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6 px-6 text-center">
+        <div className="text-2xl font-bold mb-1">{t('appName', { ns: 'common' })}</div>
+        <div className="text-sm opacity-90">{t('platformSubtitle')}</div>
+      </div>
+
+      {/* 右侧登录表单 */}
+      <div className="flex-1 flex flex-col justify-center items-center bg-white dark:bg-gray-800 px-4 py-8 lg:py-12">
         <form
           onSubmit={handleLogin}
-          style={{
-            width: 420,
-            background: "#fff",
-            boxShadow: "0 2px 12px rgba(224, 227, 236, 0.3)",
-            borderRadius: 12,
-            padding: "40px 38px",
-            marginTop: -60,
-            minHeight: 520
-          }}
+          className="w-full max-w-md bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 sm:p-8 lg:p-10 lg:-mt-12"
         >
           {/* Logo+标题 */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 26
-          }}>
-            <div style={{
-              background: "#2060e8",
-              borderRadius: "50%",
-              width: 38,
-              height: 38,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 12
-            }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>K8S</span>
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+              <span className="text-white font-bold text-base">K8S</span>
             </div>
-            <div style={{ fontSize: 23, fontWeight: 600 }}>
+            <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
               {t('appName', { ns: 'common' })}
             </div>
-            <span style={{ color: "#b0b9c8", fontSize: 18, marginLeft: 8, fontWeight: 400 }}>{t('platformTitle')}</span>
+            <span className="text-gray-400 text-base sm:text-lg ml-2 font-normal">{t('platformTitle')}</span>
           </div>
 
           {/* 标签切换 */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 24, marginTop: 20 }}>
+          <div className="flex gap-2 mb-6 mt-5">
             <button
               type="button"
               onClick={() => {
@@ -230,21 +201,11 @@ export default function LoginPage() {
                 setUsername('');
                 setPassword('');
               }}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                fontSize: 15,
-                fontWeight: 600,
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                transition: "all 0.2s",
-                background: activeTab === 'sso'
-                  ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
-                  : "#f1f5f9",
-                color: activeTab === 'sso' ? "#fff" : "#64748b",
-                boxShadow: activeTab === 'sso' ? "0 4px 12px rgba(30, 64, 175, 0.3)" : "none"
-              }}
+              className={`flex-1 py-2.5 px-4 text-sm sm:text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
+                activeTab === 'sso'
+                  ? 'bg-gradient-to-br from-blue-800 to-blue-500 text-white shadow-lg shadow-blue-800/30'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              }`}
             >
               {t('ssoLogin')}
             </button>
@@ -256,21 +217,11 @@ export default function LoginPage() {
                 setUsername('');
                 setPassword('');
               }}
-              style={{
-                flex: 1,
-                padding: "10px 16px",
-                fontSize: 15,
-                fontWeight: 600,
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                transition: "all 0.2s",
-                background: activeTab === 'local'
-                  ? "linear-gradient(135deg, #2060e8 0%, #06b6d4 100%)"
-                  : "#f1f5f9",
-                color: activeTab === 'local' ? "#fff" : "#64748b",
-                boxShadow: activeTab === 'local' ? "0 4px 12px rgba(32, 96, 232, 0.3)" : "none"
-              }}
+              className={`flex-1 py-2.5 px-4 text-sm sm:text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
+                activeTab === 'local'
+                  ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/30'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              }`}
             >
               {t('localLogin')}
             </button>
@@ -278,15 +229,7 @@ export default function LoginPage() {
 
           {/* 错误提示 */}
           {error && (
-            <div style={{
-              background: "#fee",
-              color: "#c33",
-              padding: "10px 14px",
-              borderRadius: 6,
-              fontSize: 14,
-              marginBottom: 20,
-              border: "1px solid #fcc"
-            }}>
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2.5 px-3.5 rounded-md text-sm mb-5 border border-red-200 dark:border-red-800">
               {error}
             </div>
           )}
@@ -294,63 +237,43 @@ export default function LoginPage() {
           {/* 标签内容 */}
           {activeTab === 'sso' ? (
             <div>
-              <div style={{
-                textAlign: "center",
-                fontSize: 15,
-                color: "#666",
-                marginBottom: 24
-              }}>
+              <div className="text-center text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
                 {t('ssoDescription')}
               </div>
             </div>
           ) : (
-            <div style={{ marginBottom: 20 }}>
+            <div className="mb-5">
               <input
                 type="text"
                 placeholder={t('enterUsername')}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "11px 13px",
-                  fontSize: 16,
-                  marginBottom: 16,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 7,
-                  outline: "none"
-                }}
+                className="w-full py-2.5 px-3.5 text-sm sm:text-base mb-4 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="password"
                 placeholder={t('enterPassword')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "11px 13px",
-                  fontSize: 16,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 7,
-                  outline: "none"
-                }}
+                className="w-full py-2.5 px-3.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           )}
 
           {/* 协议 */}
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 14, color: "#555", display: "flex", alignItems: "flex-start" }}>
+          <div className="mb-6">
+            <label className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex items-start">
               <input
                 type="checkbox"
                 checked={agree}
                 onChange={e => handleAgreeChange(e.target.checked)}
-                style={{ marginRight: 7, accentColor: "#2060e8", marginTop: 2 }}
+                className="mr-2 mt-0.5 accent-blue-600"
               />
               <div>
                 {t('agreement')}
-                <a href="#" style={{ color: "#2060e8", textDecoration: "underline", marginLeft: 2 }}>{t('userAgreement')}</a>
+                <a href="#" className="text-blue-600 dark:text-blue-400 underline ml-1">{t('userAgreement')}</a>
                 {agree && (
-                  <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {t('agreementSaved')}
                   </div>
                 )}
@@ -362,49 +285,18 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={!agree || isLoading}
-            style={{
-              width: "100%",
-              padding: "13px 0",
-              fontSize: 17,
-              fontWeight: 700,
-              background: (agree && !isLoading)
+            className={`w-full py-3 sm:py-3.5 text-base sm:text-lg font-bold text-white border-none rounded-lg flex items-center justify-center transition-all ${
+              agree && !isLoading
                 ? (activeTab === 'sso'
-                    ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
-                    : "linear-gradient(135deg, #2060e8 0%, #06b6d4 100%)")
-                : "#d2d8e0",
-              color: "#fff",
-              border: "none",
-              borderRadius: 7,
-              cursor: (agree && !isLoading) ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: (agree && !isLoading)
-                ? (activeTab === 'sso'
-                    ? "0 4px 12px rgba(30, 64, 175, 0.3)"
-                    : "0 4px 12px rgba(32, 96, 232, 0.3)")
-                : "none"
-            }}
+                    ? 'bg-gradient-to-br from-blue-800 to-blue-500 shadow-lg shadow-blue-800/30 cursor-pointer hover:from-blue-900 hover:to-blue-600'
+                    : 'bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30 cursor-pointer hover:from-blue-700 hover:to-cyan-600')
+                : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+            }`}
           >
             {isLoading ? (
               <>
-                <span style={{ marginRight: 8 }}>{t('loggingIn')}</span>
-                <span style={{
-                  display: "inline-block",
-                  width: 12,
-                  height: 12,
-                  border: "2px solid #fff",
-                  borderTop: "2px solid transparent",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite"
-                }}>
-                </span>
-                <style>{`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                `}</style>
+                <span className="mr-2">{t('loggingIn')}</span>
+                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               </>
             ) : (
               activeTab === 'sso' ? t('ssoLogin') : t('localLogin')
@@ -413,33 +305,23 @@ export default function LoginPage() {
 
           {/* 注册提醒 - 仅在统一认证标签显示 */}
           {activeTab === 'sso' && (
-            <div style={{ marginTop: 20, textAlign: "center" }}>
+            <div className="mt-5 text-center">
               <a
                 href="https://newlogin.ihep.ac.cn/admin/register"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 14,
-                  color: "#64748b",
-                  textDecoration: "none",
-                  transition: "color 0.2s"
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.color = "#2060e8"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "#64748b"}
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 dark:text-gray-400 no-underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                <span>❓</span>
+                <HelpCircle size={16} className="flex-shrink-0" />
                 <span>{t('noAccount')}</span>
-                <span style={{ color: "#2060e8", fontWeight: 600 }}>{t('registerNow')}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-semibold">{t('registerNow')}</span>
               </a>
             </div>
           )}
 
-          <div style={{ fontSize: 12, color: "#bbb", marginTop: 32, textAlign: "center" }}>
+          <div className="text-xs text-gray-400 dark:text-gray-500 mt-6 sm:mt-8 text-center">
             京ICP备05002790号-1 © 中国科学院高能物理研究所
-            <a href="#" style={{ color: "#2060e8", marginLeft: 10 }}>联系我们</a>
+            <a href="#" className="text-blue-600 dark:text-blue-400 ml-2.5 hover:underline">联系我们</a>
           </div>
         </form>
       </div>

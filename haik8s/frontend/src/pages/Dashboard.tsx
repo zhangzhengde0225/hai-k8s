@@ -45,14 +45,14 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('myContainers')}</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{t('myContainers')}</h2>
         <Link
           to="/containers/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
         >
           <PlusCircle size={16} />
-          {t('newContainer', { ns: 'common' })}
+          <span>{t('newContainer', { ns: 'common' })}</span>
         </Link>
       </div>
 
@@ -75,11 +75,11 @@ export default function Dashboard() {
               className="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow p-5"
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                <h3 className="font-semibold text-gray-900 dark:text-white truncate flex-1 mr-2">
                   {c.name}
                 </h3>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
                     statusColors[c.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                   }`}
                 >

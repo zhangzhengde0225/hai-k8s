@@ -33,10 +33,10 @@ export default function LanguageSwitcher() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+        className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
       >
         <Globe size={18} />
-        <span>{language === 'zh' ? '中文' : 'EN'}</span>
+        <span className="hidden sm:inline">{language === 'zh' ? '中文' : 'EN'}</span>
       </button>
 
       {isOpen && (

@@ -39,15 +39,15 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
         <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
           {getInitial(user.full_name || user.username)}
         </div>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span className="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300">
           {user.full_name || user.username}
         </span>
-        <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
+        <ChevronDown size={16} className="hidden md:block text-gray-500 dark:text-gray-400" />
       </button>
 
       {isOpen && (
