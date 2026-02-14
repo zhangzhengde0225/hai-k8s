@@ -193,13 +193,14 @@ def get_pod_details(namespace: str, name: str) -> Optional[dict]:
         raise
 
 
-def get_pod_logs(namespace: str, name: str, tail_lines: int = 200) -> str:
-    """Get pod logs"""
+def get_pod_logs(namespace: str, name: str, container: Optional[str] = None, tail_lines: int = 200) -> str:
+    """Get pod logs, supports specifying container for multi-container pods"""
     v1 = get_core_v1()
     try:
         return v1.read_namespaced_pod_log(
             name=name,
             namespace=namespace,
+            container=container,  # If None, K8s will automatically select the first container
             tail_lines=tail_lines,
         )
     except ApiException as e:
@@ -208,3 +209,165 @@ def get_pod_logs(namespace: str, name: str, tail_lines: int = 200) -> str:
         if e.status == 400:
             return "Container not started yet"
         return f"Error fetching logs: {e}"
+
+
+def list_all_pods_in_cluster() -> list[dict]:
+    """
+    List all PODs in all namespaces across the K8s cluster.
+
+    Returns a list of POD dictionaries containing:
+    - namespace: Namespace
+    - name: POD name
+    - phase: Status (Running/Pending/Failed etc.)
+    - pod_ip: POD IP address
+    - node_name: Running node
+    - created_at: Creation time
+    - containers: Container list (name, image, ready status, restart count)
+    - labels: Label dictionary (used to identify system-managed PODs)
+    - resource_requests: Resource requests (CPU/memory/GPU)
+    - resource_limits: Resource limits
+    - owner_references: Parent resource references (Deployment/StatefulSet etc.)
+    """
+    v1 = get_core_v1()
+    pods = v1.list_pod_for_all_namespaces()
+
+    result = []
+    for pod in pods.items:
+        # Parse container info
+        containers = []
+        if pod.spec.containers:
+            for c in pod.spec.containers:
+                restart_count = 0
+                ready = False
+                if pod.status.container_statuses:
+                    for cs in pod.status.container_statuses:
+                        if cs.name == c.name:
+                            restart_count = cs.restart_count
+                            ready = cs.ready
+                            break
+
+                containers.append({
+                    "name": c.name,
+                    "image": c.image,
+                    "ready": ready,
+                    "restart_count": restart_count,
+                })
+
+        # Parse resource requests and limits
+        resources_req = {}
+        resources_lim = {}
+        if pod.spec.containers:
+            for c in pod.spec.containers:
+                if c.resources:
+                    if c.resources.requests:
+                        resources_req = {
+                            "cpu": c.resources.requests.get("cpu"),
+                            "memory": c.resources.requests.get("memory"),
+                            "gpu": c.resources.requests.get("nvidia.com/gpu"),
+                        }
+                    if c.resources.limits:
+                        resources_lim = {
+                            "cpu": c.resources.limits.get("cpu"),
+                            "memory": c.resources.limits.get("memory"),
+                            "gpu": c.resources.limits.get("nvidia.com/gpu"),
+                        }
+
+        # Check if this is a system-managed POD
+        labels = pod.metadata.labels or {}
+        is_system_managed = labels.get("managed-by") == "haik8s"
+
+        # Parse owner references
+        owner_refs = []
+        if pod.metadata.owner_references:
+            for owner in pod.metadata.owner_references:
+                owner_refs.append({
+                    "kind": owner.kind,
+                    "name": owner.name,
+                })
+
+        result.append({
+            "namespace": pod.metadata.namespace,
+            "name": pod.metadata.name,
+            "phase": pod.status.phase,
+            "pod_ip": pod.status.pod_ip,
+            "node_name": pod.spec.node_name,
+            "host_ip": pod.status.host_ip,
+            "created_at": pod.metadata.creation_timestamp,
+            "containers": containers,
+            "labels": dict(labels),
+            "is_system_managed": is_system_managed,
+            "resource_requests": resources_req,
+            "resource_limits": resources_lim,
+            "owner_references": owner_refs,
+        })
+
+    return result
+
+
+def get_pod_describe(namespace: str, name: str) -> dict:
+    """
+    Get detailed POD description info (similar to kubectl describe pod).
+
+    Returns complete POD object information including:
+    - metadata: Metadata (labels, annotations etc.)
+    - spec: Specification configuration
+    - status: Current status
+    - conditions: Status condition list
+    - volumes: Volume configuration
+    """
+    v1 = get_core_v1()
+    pod = v1.read_namespaced_pod(name=name, namespace=namespace)
+
+    # Parse conditions
+    conditions = []
+    if pod.status.conditions:
+        for cond in pod.status.conditions:
+            conditions.append({
+                "type": cond.type,
+                "status": cond.status,
+                "reason": cond.reason,
+                "message": cond.message,
+                "last_transition_time": cond.last_transition_time.isoformat() if cond.last_transition_time else None,
+            })
+
+    # Parse volumes
+    volumes = []
+    if pod.spec.volumes:
+        for vol in pod.spec.volumes:
+            vol_dict = {"name": vol.name}
+            # Identify volume type
+            if vol.config_map:
+                vol_dict["type"] = "ConfigMap"
+                vol_dict["source"] = vol.config_map.name
+            elif vol.secret:
+                vol_dict["type"] = "Secret"
+                vol_dict["source"] = vol.secret.secret_name
+            elif vol.empty_dir:
+                vol_dict["type"] = "EmptyDir"
+            elif vol.host_path:
+                vol_dict["type"] = "HostPath"
+                vol_dict["source"] = vol.host_path.path
+            elif vol.persistent_volume_claim:
+                vol_dict["type"] = "PersistentVolumeClaim"
+                vol_dict["source"] = vol.persistent_volume_claim.claim_name
+            else:
+                vol_dict["type"] = "Other"
+
+            volumes.append(vol_dict)
+
+    # Convert K8s object to dictionary (for JSON serialization)
+    return {
+        "namespace": pod.metadata.namespace,
+        "name": pod.metadata.name,
+        "labels": dict(pod.metadata.labels or {}),
+        "annotations": dict(pod.metadata.annotations or {}),
+        "phase": pod.status.phase,
+        "pod_ip": pod.status.pod_ip,
+        "host_ip": pod.status.host_ip,
+        "node_name": pod.spec.node_name,
+        "created_at": pod.metadata.creation_timestamp.isoformat() if pod.metadata.creation_timestamp else None,
+        "conditions": conditions,
+        "volumes": volumes,
+        "restart_policy": pod.spec.restart_policy,
+        "service_account": pod.spec.service_account_name,
+    }

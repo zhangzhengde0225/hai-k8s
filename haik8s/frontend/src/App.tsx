@@ -18,6 +18,7 @@ import ContainerDetail from './pages/ContainerDetail';
 import AdminUsers from './pages/AdminUsers';
 import AdminImages from './pages/AdminImages';
 import AdminCluster from './pages/AdminCluster';
+import AdminPods from './pages/AdminPods';
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
@@ -84,6 +85,14 @@ export default function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminCluster />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/pods"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPods />
               </ProtectedRoute>
             }
           />

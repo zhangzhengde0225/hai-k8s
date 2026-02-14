@@ -138,3 +138,69 @@ export interface SaveConfigData {
   sshEnabled: boolean;
   storagePath?: string;
 }
+
+// ==================== POD管理相关类型 ====================
+
+export interface PodContainer {
+  name: string;
+  image: string;
+  ready: boolean;
+  restart_count: number;
+}
+
+export interface PodResourceInfo {
+  cpu: string | null;
+  memory: string | null;
+  gpu: string | null;
+}
+
+export interface PodOwnerReference {
+  kind: string;
+  name: string;
+}
+
+export interface Pod {
+  namespace: string;
+  name: string;
+  phase: string;
+  pod_ip: string | null;
+  node_name: string | null;
+  created_at: string;
+  containers: PodContainer[];
+  labels: Record<string, string>;
+  is_system_managed: boolean;
+  container_id: number | null;
+  resource_requests: PodResourceInfo;
+  resource_limits: PodResourceInfo;
+  owner_references: PodOwnerReference[];
+}
+
+export interface PodCondition {
+  type: string;
+  status: string;
+  reason: string | null;
+  message: string | null;
+  last_transition_time: string | null;
+}
+
+export interface PodVolume {
+  name: string;
+  type: string;
+  source: string | null;
+}
+
+export interface PodDetail {
+  namespace: string;
+  name: string;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  phase: string;
+  pod_ip: string | null;
+  host_ip: string | null;
+  node_name: string | null;
+  created_at: string | null;
+  conditions: PodCondition[];
+  volumes: PodVolume[];
+  restart_policy: string | null;
+  service_account: string | null;
+}

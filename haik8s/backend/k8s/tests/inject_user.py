@@ -267,27 +267,32 @@ echo ""
 # Keep container running
 # ============================================================================
 """
-    # 因为采用了k8s来启动容器，所以这里不需要再用sshd了，直接tail -f /dev/null即可
-#     if ssh_enabled:
-#         script += """# Start SSH service if available
-# if command -v sshd &> /dev/null; then
-#     echo "Starting SSH daemon..."
-#     # Generate host keys if they don't exist
-#     if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
-#         ssh-keygen -A
-#     fi
-#     # Start SSH in foreground
-#     /usr/sbin/sshd -D -e
-# else
-#     echo "SSH daemon not found, keeping container alive with tail"
-#     tail -f /dev/null
-# fi
-# """
-#     else:
-#         script += """echo "Keeping container alive..."
-# tail -f /dev/null
-# """
-    script += """echo "Keeping container alive..."
+
+    if ssh_enabled:
+        script += """# Start SSH service if available
+if command -v sshd &> /dev/null; then
+    echo "Starting SSH daemon..."
+
+    # Generate host keys if they don't exist
+    if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+        echo "  Generating SSH host keys..."
+        ssh-keygen -A
+    fi
+
+    # Ensure /var/run/sshd directory exists
+    mkdir -p /var/run/sshd
+
+    # Start SSH in foreground mode
+    echo "  Starting sshd in foreground mode..."
+    /usr/sbin/sshd -D -e
+else
+    echo "⚠️  Warning: sshd not found in image"
+    echo "Container will stay alive but SSH will not be available"
+    tail -f /dev/null
+fi
+"""
+    else:
+        script += """echo "Keeping container alive..."
 tail -f /dev/null
 """
 

@@ -11,6 +11,7 @@ import {
   Users,
   Image as ImageIcon,
   Server,
+  Package,
   ChevronRight,
   X,
 } from 'lucide-react';
@@ -113,6 +114,11 @@ export default function Sidebar() {
           label: t('cluster'),
           path: '/admin/cluster',
           icon: <Server size={16} />,
+        },
+        {
+          label: t('pods'),
+          path: '/admin/pods',
+          icon: <Package size={16} />,
         },
       ],
       adminOnly: true,

@@ -354,18 +354,6 @@ def launch_openclaw(
         print("✅ Quota check passed")
         print()
 
-        # Allocate NodePort if SSH
-        node_port = None
-        if ssh_enabled:
-            print("🔌 Allocating NodePort for SSH access...")
-            node_port = find_available_nodeport_enhanced(
-                session, Config.NODEPORT_RANGE_START, Config.NODEPORT_RANGE_END
-            )
-            if node_port is None:
-                print("❌ Error: No available NodePorts")
-                return False
-            print()
-
         # Generate K8s names
         namespace = make_namespace(username)
         sanitized_username = sanitize_k8s_name(username)
@@ -403,7 +391,7 @@ def launch_openclaw(
             memory_request=memory,
             gpu_request=gpu,
             ssh_enabled=ssh_enabled,
-            ssh_node_port=node_port,
+            ssh_node_port=None,  # LoadBalancer doesn't use NodePort
             status=ContainerStatus.CREATING,
         )
         print(f"✅ Container record created (ID: {container.id})")
@@ -436,11 +424,32 @@ def launch_openclaw(
             )
             print(f"   ✅ Pod created successfully")
 
-            # Create SSH service if enabled
-            if ssh_enabled and node_port:
-                print(f"   Creating SSH service: {service_name}")
-                # create_ssh_service(namespace, pod_name, node_port)
-                print(f"   ✅ SSH service created successfully")
+            # Create SSH LoadBalancer service if enabled
+            lb_ip = None
+            if ssh_enabled:
+                print(f"   Creating SSH LoadBalancer service: {service_name}")
+                from inject_ssh_loadbalancer import (
+                    create_ssh_loadbalancer_service,
+                    get_loadbalancer_ip
+                )
+
+                # Create LoadBalancer Service
+                service = create_ssh_loadbalancer_service(
+                    namespace=namespace,
+                    pod_name=pod_name,
+                    service_name=service_name,
+                )
+                print(f"   ✅ SSH LoadBalancer service created")
+
+                # Wait for LoadBalancer IP allocation
+                print(f"   ⏳ Waiting for LoadBalancer IP allocation (MetalLB)...")
+                lb_ip = get_loadbalancer_ip(namespace, service_name, timeout=60)
+                if lb_ip:
+                    print(f"   ✅ LoadBalancer IP allocated: {lb_ip}")
+                else:
+                    print(f"   ⚠️  Warning: LoadBalancer IP not allocated yet")
+                    print(f"   It may take a few moments. Check with:")
+                    print(f"   kubectl get svc -n {namespace} {service_name}")
 
             print()
             print("🎉 OpenClaw service launched successfully!")
@@ -452,14 +461,18 @@ def launch_openclaw(
             print(f"   Namespace: {namespace}")
             print(f"   Pod Name: {pod_name}")
 
-            if ssh_enabled and node_port:
-                # You may need to adjust the host based on your K8s setup
-                ssh_host = "aicpu004"  # Default from containers.py
-                ssh_user = custom_user if custom_user else "root"
-                ssh_command = f"ssh {ssh_user}@{ssh_host} -p {node_port}"
-                print(f"   SSH Command: {ssh_command}")
-                if custom_user:
-                    print(f"   Note: User '{custom_user}' password needs to be set manually in the container")
+            if ssh_enabled:
+                if lb_ip:
+                    ssh_user = custom_user if custom_user else "root"
+                    ssh_command = f"ssh {ssh_user}@{lb_ip}"
+                    print(f"   SSH Command: {ssh_command}")
+                    print(f"   LoadBalancer IP: {lb_ip}")
+                    if custom_user:
+                        print(f"   Note: User '{custom_user}' password needs to be set manually in the container")
+                else:
+                    print(f"   Service Name: {service_name}")
+                    print(f"   ⚠️  LoadBalancer IP pending allocation")
+                    print(f"   Check with: kubectl get svc -n {namespace} {service_name}")
 
             print()
             print("💡 Tips:")
