@@ -1,10 +1,194 @@
 """
 Kubernetes pod management
 """
+import json
 from typing import Optional
 from kubernetes import client
 from kubernetes.client.rest import ApiException
 from .client import get_core_v1
+
+
+def create_app_pod(
+    namespace: str,
+    name: str,
+    image: str,
+    cpu: float,
+    memory: float,
+    gpu: int = 0,
+    root_password: str = "haik8s123",
+    user_password: Optional[str] = None,
+    sync_user: bool = False,
+    custom_user: Optional[str] = None,
+    custom_uid: Optional[int] = None,
+    custom_gid: Optional[int] = None,
+    custom_home: Optional[str] = None,
+    enable_sudo: bool = True,
+    volume_mounts: Optional[list[dict]] = None,
+    bound_ip: Optional[str] = None,
+    macvlan_network: Optional[str] = None,
+    macvlan_gateway: str = "10.5.6.1",
+    macvlan_subnet: str = "10.5.6.0/24",
+    ssh_enabled: bool = True,
+) -> client.V1Pod:
+    """
+    Create an application pod with full configuration (user sync, volumes, macvlan, SSH).
+
+    Adapted from launch_openclaw.py's create_openclaw_pod for use by the backend API.
+
+    Args:
+        namespace: K8s namespace
+        name: Pod name
+        image: Container image URL
+        cpu: CPU cores (limits; requests = limits/2)
+        memory: Memory in GB (limits; requests = limits/2)
+        gpu: Number of GPUs
+        root_password: Root password for the container
+        sync_user: Whether to create a custom user in the container
+        custom_user: Username to create
+        custom_uid: User ID
+        custom_gid: Group ID
+        custom_home: Home directory path
+        enable_sudo: Grant passwordless sudo to custom user
+        volume_mounts: List of dicts with host_path and mount_path
+        bound_ip: Static macvlan IP address
+        macvlan_network: NetworkAttachmentDefinition name
+        macvlan_gateway: Gateway IP for macvlan routing
+        macvlan_subnet: Subnet CIDR for macvlan routing
+        ssh_enabled: Enable SSH server in the container
+    """
+    v1 = get_core_v1()
+    startup_commands = []
+
+    # --- Resources ---
+    resources = client.V1ResourceRequirements(
+        requests={
+            "cpu": str(cpu / 2),
+            "memory": f"{int(memory * 1024 / 2)}Mi",
+        },
+        limits={
+            "cpu": str(int(cpu)),
+            "memory": f"{int(memory * 1024)}Mi",
+        },
+    )
+    if gpu > 0:
+        resources.requests["nvidia.com/gpu"] = str(gpu)
+        resources.limits["nvidia.com/gpu"] = str(gpu)
+
+    # --- Startup commands ---
+    startup_commands.append(
+        "apt-get update && apt-get install -y openssh-server iproute2 iputils-ping net-tools sudo htop"
+    )
+
+    # Root password
+    startup_commands.append(f"echo 'root:{root_password}' | chpasswd")
+
+    # Custom user setup
+    if sync_user and custom_user:
+        startup_commands.append(f"groupadd -g {custom_gid} {custom_user} || true")
+        home_dir = custom_home if custom_home else f"/home/{custom_user}"
+        startup_commands.append(
+            f"useradd -M -d {home_dir} -u {custom_uid} -g {custom_gid} -s /bin/bash {custom_user} 2>/dev/null || true"
+        )
+        startup_commands.append(f"mkdir -p {home_dir} 2>/dev/null || true")
+        startup_commands.append(f"[ ! -f {home_dir}/.bashrc ] && touch {home_dir}/.bashrc 2>/dev/null || true")
+        startup_commands.append(
+            f'if [ -z "$(ls -A {home_dir} 2>/dev/null)" ]; then chown -R {custom_uid}:{custom_gid} {home_dir} 2>/dev/null || true; fi'
+        )
+        startup_commands.append(f"echo '{custom_user}:{user_password or root_password}' | chpasswd || true")
+        if enable_sudo:
+            startup_commands.append(f"echo '{custom_user} ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers || true")
+
+    # Network info
+    startup_commands.append("echo 'Container started'")
+    startup_commands.append("echo 'Network interfaces:'")
+    startup_commands.append("ip addr show")
+
+    # Macvlan routing
+    enable_macvlan = bound_ip is not None and macvlan_network is not None
+    if enable_macvlan:
+        startup_commands.append('echo "100 net1_table" >> /etc/iproute2/rt_tables || true')
+        startup_commands.append(f"ip route add default via {macvlan_gateway} dev net1 table net1_table || true")
+        startup_commands.append(f"ip route add {macvlan_subnet} dev net1 src {bound_ip} table net1_table || true")
+        startup_commands.append(f"ip rule add from {bound_ip} table net1_table || true")
+
+    # SSH setup
+    if ssh_enabled:
+        startup_commands.append("mkdir -p /var/run/sshd")
+        startup_commands.append("sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config")
+        startup_commands.append("sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config")
+        startup_commands.append("echo 'ClientAliveInterval 60' >> /etc/ssh/sshd_config")
+        startup_commands.append("echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config")
+        startup_commands.append("echo 'TCPKeepAlive yes' >> /etc/ssh/sshd_config")
+        startup_commands.append("echo 'Starting SSH server...'")
+        startup_commands.append("/usr/sbin/sshd -D")
+
+    command_script = " && \\\n".join(startup_commands)
+    command = ["/bin/bash", "-c", command_script]
+
+    # --- Volume mounts ---
+    container_volume_mounts = []
+    volumes = []
+    if volume_mounts:
+        for idx, mount in enumerate(volume_mounts):
+            volume_name = f"volume-{idx}"
+            host_path = mount.get("host_path")
+            mount_path = mount.get("mount_path")
+            if host_path and mount_path:
+                container_volume_mounts.append(
+                    client.V1VolumeMount(name=volume_name, mount_path=mount_path)
+                )
+                volumes.append(
+                    client.V1Volume(
+                        name=volume_name,
+                        host_path=client.V1HostPathVolumeSource(path=host_path, type="Directory"),
+                    )
+                )
+
+    # --- Container spec ---
+    container_obj = client.V1Container(
+        name="main",
+        image=image,
+        command=command,
+        resources=resources,
+        volume_mounts=container_volume_mounts if container_volume_mounts else None,
+        security_context=client.V1SecurityContext(
+            capabilities=client.V1Capabilities(add=["NET_ADMIN"]) if enable_macvlan else None,
+            privileged=True,
+            run_as_user=0,
+        ),
+    )
+
+    # --- Pod spec ---
+    pod_spec = client.V1PodSpec(
+        containers=[container_obj],
+        volumes=volumes if volumes else None,
+        restart_policy="Always",
+    )
+
+    # --- Pod metadata with optional macvlan annotation ---
+    annotations = {}
+    if enable_macvlan:
+        network_config = [{
+            "name": macvlan_network,
+            "namespace": "default",
+            "ips": [bound_ip],
+        }]
+        annotations["k8s.v1.cni.cncf.io/networks"] = json.dumps(network_config)
+
+    pod_metadata = client.V1ObjectMeta(
+        name=name,
+        labels={"app": "haik8s", "container": name, "managed-by": "haik8s"},
+        annotations=annotations if annotations else None,
+    )
+
+    pod = client.V1Pod(
+        api_version="v1",
+        kind="Pod",
+        metadata=pod_metadata,
+        spec=pod_spec,
+    )
+
+    return v1.create_namespaced_pod(namespace=namespace, body=pod)
 
 
 def create_pod(

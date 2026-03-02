@@ -43,16 +43,16 @@ export default function AdminUsers() {
     }
   };
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
 
   return (
     <div>
       <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-4 md:mb-6">Users</h2>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
+              <tr className="bg-gray-50 dark:bg-slate-950 text-left text-gray-500 dark:text-slate-400 uppercase text-xs">
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Username</th>
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Email</th>
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Role</th>
@@ -64,11 +64,11 @@ export default function AdminUsers() {
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {users.map((u) => (
               <tr key={u.id}>
                 <td className="px-4 py-3 font-medium dark:text-white">{u.username}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
+                <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{u.email}</td>
                 <td className="px-4 py-3">
                   {editing === u.id ? (
                     <select
@@ -76,7 +76,7 @@ export default function AdminUsers() {
                       onChange={(e) =>
                         setEditData({ ...editData, role: e.target.value })
                       }
-                      className="border dark:border-gray-700 rounded px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
+                      className="border dark:border-slate-700 rounded px-1 py-0.5 text-xs dark:bg-slate-950 dark:text-white"
                     >
                       <option value="user">user</option>
                       <option value="admin">admin</option>
@@ -119,7 +119,7 @@ export default function AdminUsers() {
                           cpu_quota: Number(e.target.value),
                         })
                       }
-                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
+                      className="border dark:border-slate-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-slate-950 dark:text-white"
                     />
                   ) : (
                     u.cpu_quota
@@ -136,7 +136,7 @@ export default function AdminUsers() {
                           memory_quota: Number(e.target.value),
                         })
                       }
-                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
+                      className="border dark:border-slate-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-slate-950 dark:text-white"
                     />
                   ) : (
                     u.memory_quota
@@ -153,13 +153,13 @@ export default function AdminUsers() {
                           gpu_quota: Number(e.target.value),
                         })
                       }
-                      className="border dark:border-gray-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-gray-900 dark:text-white"
+                      className="border dark:border-slate-700 rounded w-16 px-1 py-0.5 text-xs dark:bg-slate-950 dark:text-white"
                     />
                   ) : (
                     u.gpu_quota
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                <td className="px-4 py-3 text-gray-500 dark:text-slate-400 text-xs">
                   {u.cpu_used}/{u.memory_used}/{u.gpu_used}
                 </td>
                 <td className="px-4 py-3">
@@ -173,7 +173,7 @@ export default function AdminUsers() {
                       </button>
                       <button
                         onClick={() => setEditing(null)}
-                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 dark:text-white rounded cursor-pointer"
+                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-slate-800 dark:text-white rounded cursor-pointer"
                       >
                         Cancel
                       </button>

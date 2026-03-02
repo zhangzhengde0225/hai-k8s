@@ -1,0 +1,49 @@
+# ssh-deploy.yaml with macvlan network
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-test-macvlan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssh-test-macvlan
+  template:
+    metadata:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: macvlan-conf-same-subnet
+      labels:
+        app: ssh-test-macvlan
+    spec:
+      containers:
+      - name: ssh-server
+        image: ubuntu:22.04
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            apt-get update && \
+            apt-get install -y openssh-server iproute2 iputils-ping net-tools && \
+            mkdir -p /var/run/sshd && \
+            echo 'root:password123' | chpasswd && \
+            sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+            sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+            echo "Container started with macvlan network" && \
+            echo "Network interfaces:" && \
+            ip addr show && \
+            echo "Starting SSH server..." && \
+            /usr/sbin/sshd -D
+        ports:
+        - containerPort: 22
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN

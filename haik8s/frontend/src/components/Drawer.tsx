@@ -43,24 +43,24 @@ export default function Drawer({ isOpen, onClose, title, children }: DrawerProps
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="h-full flex flex-col shadow-xl border-l border-gray-200 dark:border-gray-700">
+        <div className="h-full flex flex-col shadow-xl border-l border-gray-200 dark:border-slate-700">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {title}
                 </h2>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <X size={20} className="text-gray-500 dark:text-gray-400" />
+                  <X size={20} className="text-gray-500 dark:text-slate-400" />
                 </button>
               </div>
             </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50 dark:bg-gray-900">
+          <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50 dark:bg-slate-950">
             {children}
           </div>
         </div>

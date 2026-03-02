@@ -177,7 +177,7 @@ export default function AdminImages() {
     setEnvVars(envVars.filter((_, i) => i !== index));
   };
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
 
   return (
     <div>
@@ -201,7 +201,7 @@ export default function AdminImages() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 mb-6 space-y-4"
+          className="bg-white dark:bg-slate-900 rounded-lg shadow p-5 mb-6 space-y-4"
         >
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             {editingImage ? 'Edit Image' : 'Add New Image'}
@@ -210,7 +210,7 @@ export default function AdminImages() {
           {/* Basic Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Name *
               </label>
               <input
@@ -218,11 +218,11 @@ export default function AdminImages() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Registry URL *
               </label>
               <input
@@ -231,25 +231,25 @@ export default function AdminImages() {
                 onChange={(e) => setRegistryUrl(e.target.value)}
                 required
                 placeholder="ubuntu:22.04"
-                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Description
               </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Version
               </label>
               <input
@@ -257,7 +257,7 @@ export default function AdminImages() {
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
                 placeholder="v1.0.0"
-                className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
               />
             </div>
           </div>
@@ -270,14 +270,14 @@ export default function AdminImages() {
               checked={gpuRequired}
               onChange={(e) => setGpuRequired(e.target.checked)}
             />
-            <label htmlFor="gpu" className="text-sm text-gray-700 dark:text-gray-300">
+            <label htmlFor="gpu" className="text-sm text-gray-700 dark:text-slate-300">
               GPU Required
             </label>
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Tags
             </label>
             <div className="flex flex-wrap gap-2">
@@ -289,7 +289,7 @@ export default function AdminImages() {
                   className={`px-3 py-1 text-xs rounded-full cursor-pointer ${
                     tags.includes(tag)
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300'
                   }`}
                 >
                   {tag}
@@ -300,7 +300,7 @@ export default function AdminImages() {
 
           {/* Ports */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               Ports (comma-separated)
             </label>
             <input
@@ -308,14 +308,14 @@ export default function AdminImages() {
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
               placeholder="8080, 8443"
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+              className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
             />
           </div>
 
           {/* Environment Variables */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
                 Environment Variables
               </label>
               <button
@@ -333,14 +333,14 @@ export default function AdminImages() {
                   value={env.key}
                   onChange={(e) => updateEnvVar(index, 'key', e.target.value)}
                   placeholder="KEY"
-                  className="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                  className="flex-1 border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
                 />
                 <input
                   type="text"
                   value={env.value}
                   onChange={(e) => updateEnvVar(index, 'value', e.target.value)}
                   placeholder="VALUE"
-                  className="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                  className="flex-1 border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
                 />
                 <button
                   type="button"
@@ -355,12 +355,12 @@ export default function AdminImages() {
 
           {/* Recommended Resources */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               Recommended Resources
             </label>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
                   CPU (cores)
                 </label>
                 <input
@@ -369,11 +369,11 @@ export default function AdminImages() {
                   value={recommendedCpu}
                   onChange={(e) => setRecommendedCpu(e.target.value)}
                   placeholder="2.0"
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
                   Memory (GB)
                 </label>
                 <input
@@ -382,11 +382,11 @@ export default function AdminImages() {
                   value={recommendedMemory}
                   onChange={(e) => setRecommendedMemory(e.target.value)}
                   placeholder="4.0"
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
                   GPU
                 </label>
                 <input
@@ -395,7 +395,7 @@ export default function AdminImages() {
                   value={recommendedGpu}
                   onChange={(e) => setRecommendedGpu(e.target.value)}
                   placeholder="0"
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
                 />
               </div>
             </div>
@@ -410,10 +410,10 @@ export default function AdminImages() {
         </form>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
+            <tr className="bg-gray-50 dark:bg-slate-950 text-left text-gray-500 dark:text-slate-400 uppercase text-xs">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Version</th>
               <th className="px-4 py-3">Tags</th>
@@ -422,11 +422,11 @@ export default function AdminImages() {
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
             {images.map((img) => (
               <tr key={img.id}>
                 <td className="px-4 py-3 font-medium dark:text-white">{img.name}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                <td className="px-4 py-3 text-gray-500 dark:text-slate-400">
                   {img.version || '-'}
                 </td>
                 <td className="px-4 py-3">
@@ -445,7 +445,7 @@ export default function AdminImages() {
                     <span className="text-gray-400">-</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">
+                <td className="px-4 py-3 text-gray-500 dark:text-slate-400 font-mono text-xs">
                   {img.registry_url}
                 </td>
                 <td className="px-4 py-3">

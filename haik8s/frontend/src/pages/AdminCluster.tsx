@@ -15,7 +15,7 @@ export default function AdminCluster() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
 
   return (
     <div>
@@ -24,7 +24,7 @@ export default function AdminCluster() {
         {nodes.map((node) => (
           <div
             key={node.name}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow p-5"
+            className="bg-white dark:bg-slate-900 rounded-lg shadow p-5"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900 dark:text-white">{node.name}</h3>
@@ -41,27 +41,27 @@ export default function AdminCluster() {
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">CPU Capacity</span>
+                <span className="text-gray-500 dark:text-slate-400">CPU Capacity</span>
                 <span className="font-medium dark:text-white">{node.cpu_capacity}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">CPU Allocatable</span>
+                <span className="text-gray-500 dark:text-slate-400">CPU Allocatable</span>
                 <span className="font-medium dark:text-white">{node.cpu_allocatable}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Memory Capacity</span>
+                <span className="text-gray-500 dark:text-slate-400">Memory Capacity</span>
                 <span className="font-medium dark:text-white">{node.memory_capacity}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Memory Allocatable</span>
+                <span className="text-gray-500 dark:text-slate-400">Memory Allocatable</span>
                 <span className="font-medium dark:text-white">{node.memory_allocatable}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">GPU Capacity</span>
+                <span className="text-gray-500 dark:text-slate-400">GPU Capacity</span>
                 <span className="font-medium dark:text-white">{node.gpu_capacity}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">GPU Allocatable</span>
+                <span className="text-gray-500 dark:text-slate-400">GPU Allocatable</span>
                 <span className="font-medium dark:text-white">{node.gpu_allocatable}</span>
               </div>
             </div>

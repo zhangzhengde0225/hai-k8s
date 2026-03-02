@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Launch OpenClaw K8s Service for User zdzhang
+Launch OpenClaw K8s Service
 
 This script creates a K8s pod and service for the OpenClaw application
-for user zdzhang using the existing HAI-K8S infrastructure.
+with modular configuration for user, volume, and network mounts.
 
 Author: Zhengde ZHANG
 """
 import sys
 from pathlib import Path
+from dataclasses import dataclass, field
 
 # Add backend to path
 BACKEND_DIR = Path(__file__).parent.parent.parent
@@ -16,602 +17,511 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 HERE = Path(__file__).parent
 
-from sqlmodel import Session, select
-from db.database import init_db
-from db.models import User, Image, Container, ContainerStatus
-from db.crud import (
-    get_user_by_username,
-    get_image_by_id,
-    create_container,
-    check_quota,
-)
+import hepai as hai
+from kubernetes import client
 from config import Config
-from k8s.client import init_k8s_client, ensure_namespace
+from k8s.client import init_k8s_client, get_core_v1, ensure_namespace
 from k8s.pods import get_pod_status
-from k8s.services import create_ssh_service
-import re
+
+from apps.openclaw.create_openclaw_pod import create_openclaw_pod
 
 
-def sanitize_k8s_name(name: str) -> str:
-    """
-    Sanitize a string to make it Kubernetes-compatible (RFC 1123 label).
-    """
-    if '@' in name:
-        name = name.split('@')[0]
+# ============================================================================
+# Pod Creation
+# ============================================================================
 
-    name = name.lower()
-    name = re.sub(r'[^a-z0-9-]', '-', name)
-    name = re.sub(r'-+', '-', name)
-    name = name.strip('-')
+# def create_openclaw_pod(
+#     namespace: str,
+#     name: str,
+#     image: str,
+#     cpu: float,
+#     memory: float,
+#     gpu: int = 0,
+#     root_password: str = "test123",
+#     # User configuration
+#     enable_user_mounts: bool = False,
+#     custom_user: str = None,
+#     custom_uid: int = None,
+#     custom_gid: int = None,
+#     custom_home: str = None,
+#     enable_sudo: bool = True,
+#     custom_bashrc: str = None,
+#     # Volume configuration
+#     enable_volume_mounts: bool = False,
+#     volume_mounts: list = None,
+#     # Network configuration
+#     enable_network_mounts: bool = False,
+#     macvlan_network: str = None,
+#     macvlan_ip: str = None,
+#     macvlan_gateway: str = "10.5.6.1",
+#     macvlan_subnet: str = "10.5.6.0/24",
+#     ssh_enabled: bool = True,
+# ) -> client.V1Pod:
+#     """
+#     Create OpenClaw pod with modular configuration.
 
-    if not name:
-        name = 'user'
-
-    if not name[0].isalnum():
-        name = 'u' + name
-
-    if not name[-1].isalnum():
-        name = name + '0'
-
-    max_suffix_length = 63 - len(Config.K8S_NAMESPACE_PREFIX)
-    if len(name) > max_suffix_length:
-        name = name[:max_suffix_length].rstrip('-')
-        if name and not name[-1].isalnum():
-            name = name.rstrip('-') + '0'
-
-    return name
-
-
-def make_namespace(username: str) -> str:
-    """Generate a Kubernetes-compatible namespace name from username."""
-    sanitized = sanitize_k8s_name(username)
-    return f"{Config.K8S_NAMESPACE_PREFIX}{sanitized}"
-
-
-def create_pod_with_user(
-    namespace: str,
-    name: str,
-    image: str,
-    cpu: float,
-    memory: float,
-    gpu: int,
-    ssh_enabled: bool = False,
-    custom_user: str = None,
-    custom_uid: int = None,
-    custom_gid: int = None,
-    enable_sudo: bool = True,
-    custom_bashrc: str = None,
-    volume_mounts: list = None,
-) -> "client.V1Pod":
-    """
-    Create a pod with custom user and UID/GID using inject_user module.
-
-    Args:
-        namespace: K8s namespace
-        name: Pod name
-        image: Container image
-        cpu: CPU cores
-        memory: Memory in GB
-        gpu: Number of GPUs
-        ssh_enabled: Whether to enable SSH
-        custom_user: Username to create (e.g., "user")
-        custom_uid: User ID (e.g., 21927)
-        custom_gid: Group ID (e.g., 600)
-        enable_sudo: Whether to grant sudo privileges to the user
-        custom_bashrc: Additional .bashrc configuration to append
-        volume_mounts: List of volume mounts, each dict with 'host_path' and 'mount_path'
-                       Example: [
-                           {"host_path": "/aifs/user/home/zdzhang", "mount_path": "/home/zdzhang"},
-                           {"host_path": "/aifs/data", "mount_path": "/data"}
-                       ]
-    """
-    from kubernetes import client
-    from k8s.client import get_core_v1
-    from inject_user import generate_user_injection_script_with_custom_bashrc
-
-    v1 = get_core_v1()
-
-    # Build resource requests
-    resources = client.V1ResourceRequirements(
-        requests={
-            "cpu": str(cpu/2),
-            "memory": f"{int(memory)/2*1024}Mi",
-        },
-        limits={
-            "cpu": str(int(cpu)),
-            "memory": f"{int(memory)*1024}Mi",
-        },
-    )
-
-    if gpu > 0:
-        resources.requests["nvidia.com/gpu"] = str(gpu)
-        resources.limits["nvidia.com/gpu"] = str(gpu)
-
-    # Build startup script if custom user is specified
-    if custom_user and custom_uid and custom_gid:
-        # Use inject_user module to generate the script
-        startup_script = generate_user_injection_script_with_custom_bashrc(
-            username=custom_user,
-            uid=custom_uid,
-            gid=custom_gid,
-            ssh_enabled=ssh_enabled,
-            enable_sudo=enable_sudo,
-            additional_bashrc_config=custom_bashrc,
-        )
-        command = ["/bin/bash", "-c", startup_script]
-    else:
-        # Original behavior without custom user
-        if ssh_enabled:
-            command = None  # Use image's default CMD
-        else:
-            command = ["/bin/bash", "-c", "tail -f /dev/null"]
-
-    # Build volume mounts for container
-    container_volume_mounts = []
-    volumes = []
-
-    if volume_mounts:
-        for idx, mount in enumerate(volume_mounts):
-            volume_name = f"volume-{idx}"
-            host_path = mount.get("host_path")
-            mount_path = mount.get("mount_path")
-
-            if host_path and mount_path:
-                # Add volume mount to container
-                container_volume_mounts.append(
-                    client.V1VolumeMount(
-                        name=volume_name,
-                        mount_path=mount_path,
-                    )
-                )
-
-                # Add volume to pod spec
-                volumes.append(
-                    client.V1Volume(
-                        name=volume_name,
-                        host_path=client.V1HostPathVolumeSource(
-                            path=host_path,
-                            # type="DirectoryOrCreate",
-                            type="Directory"  # Use Directory to avoid permission issues; ensure host path exists
-                        ),
-                    )
-                )
-
-    # Container spec
-    container = client.V1Container(
-        name="main",
-        image=image,
-        command=command,
-        resources=resources,
-        volume_mounts=container_volume_mounts if container_volume_mounts else None,
-        security_context=client.V1SecurityContext(
-            privileged=True,  # Required for creating users and installing packages
-            run_as_user=0,    # Run as root initially to create users
-        ),
-    )
-
-    # Pod spec
-    pod_spec = client.V1PodSpec(
-        containers=[container],
-        volumes=volumes if volumes else None,
-        restart_policy="Always",
-    )
-
-    # Pod metadata
-    pod_metadata = client.V1ObjectMeta(
-        name=name,
-        labels={"app": name, "managed-by": "haik8s"},
-    )
-
-    pod = client.V1Pod(
-        api_version="v1",
-        kind="Pod",
-        metadata=pod_metadata,
-        spec=pod_spec,
-    )
-
-    return v1.create_namespaced_pod(namespace=namespace, body=pod)
+#     Args:
+#         namespace: K8s namespace
+#         name: Pod name
+#         image: Container image
+#         cpu: CPU cores
+#         memory: Memory in GB
+#         gpu: Number of GPUs
+#         root_password: Root password
+#         enable_user_mounts: Enable custom user setup
+#         custom_user: Username to create
+#         custom_uid: User ID
+#         custom_gid: Group ID
+#         custom_home: Home directory
+#         enable_sudo: Enable sudo for user
+#         custom_bashrc: Additional bashrc config
+#         enable_volume_mounts: Enable volume mounts
+#         volume_mounts: List of volume mounts [{"host_path": "/path", "mount_path": "/path"}]
+#         enable_network_mounts: Enable macvlan network
+#         macvlan_network: NetworkAttachmentDefinition name
+#         macvlan_ip: Specific IP for macvlan
+#         macvlan_gateway: Gateway IP for macvlan (default: 10.5.6.1)
+#         macvlan_subnet: Subnet for macvlan (default: 10.5.6.0/24)
+#         ssh_enabled: Enable SSH service
+#     """
+#     v1 = get_core_v1()
+#     startup_commands = []
 
 
-def find_available_nodeport_enhanced(session, range_start: int, range_end: int) -> int:
-    """
-    Find an available NodePort by checking both database and K8s cluster.
+#     # -----------------------------
+#     # 01 Basic Computing Resources
+#     # -----------------------------
+#     resources = client.V1ResourceRequirements(
+#         requests={
+#             "cpu": str(cpu / 2),
+#             "memory": f"{int(memory) / 2 * 1024}Mi",
+#         },
+#         limits={
+#             "cpu": str(int(cpu)),
+#             "memory": f"{int(memory) * 1024}Mi",
+#         },
+#     )
 
-    This is an enhanced version that checks:
-    1. Database records (containers.ssh_node_port)
-    2. Actual K8s services using NodePort
-    """
-    from kubernetes.client.rest import ApiException
-    from k8s.client import get_core_v1
+#     if gpu > 0:
+#         resources.requests["nvidia.com/gpu"] = str(gpu)
+#         resources.limits["nvidia.com/gpu"] = str(gpu)
 
-    # Get ports used in database
-    from sqlmodel import select
-    statement = select(Container.ssh_node_port).where(
-        Container.ssh_node_port.isnot(None),
-        Container.status.in_([ContainerStatus.CREATING, ContainerStatus.RUNNING])
-    )
-    db_used_ports = set(session.exec(statement).all())
-    print(f"   Ports used in DB: {sorted(db_used_ports) if db_used_ports else 'none'}")
+#     # Install basic packages
+#     startup_commands.append("apt-get update && apt-get install -y openssh-server iproute2 iputils-ping net-tools sudo htop")
 
-    # Get ports used in K8s cluster
-    k8s_used_ports = set()
-    try:
-        v1 = get_core_v1()
-        services = v1.list_service_for_all_namespaces()
-        for svc in services.items:
-            if svc.spec.type == "NodePort" and svc.spec.ports:
-                for port in svc.spec.ports:
-                    if port.node_port:
-                        k8s_used_ports.add(port.node_port)
-        print(f"   Ports used in K8s: {sorted(k8s_used_ports) if k8s_used_ports else 'none'}")
-    except ApiException as e:
-        print(f"   ⚠️  Warning: Could not query K8s services: {e}")
-        print(f"   Falling back to DB-only check")
+#     # -----------------------------
+#     # 02 User Configuration
+#     # -----------------------------
+    
+#     # Set root password
+#     startup_commands.append(f"echo 'root:{root_password}' | chpasswd")
 
-    # Combine both sets
-    all_used_ports = db_used_ports | k8s_used_ports
+#     # Custom user setup
+#     if enable_user_mounts and custom_user:
+#         startup_commands.append(f"groupadd -g {custom_gid} {custom_user} || true")
+        
+#         home_dir = custom_home if custom_home else f"/home/{custom_user}"
+#         # Use -M flag to not create home directory, then use -d to specify home path
+#         startup_commands.append(f"useradd -M -d {home_dir} -u {custom_uid} -g {custom_gid} -s /bin/bash {custom_user} 2>/dev/null || true")
+#         # Create home directory only if it doesn't exist
+#         startup_commands.append(f"mkdir -p {home_dir} 2>/dev/null || true")
+#         # Create .bashrc only if it doesn't exist and we have write permission
+#         startup_commands.append(f"[ ! -f {home_dir}/.bashrc ] && touch {home_dir}/.bashrc 2>/dev/null || true")
+#         # Set ownership only if directory is empty and we have permission
+#         startup_commands.append(f"if [ -z \"$(ls -A {home_dir} 2>/dev/null)\" ]; then chown -R {custom_uid}:{custom_gid} {home_dir} 2>/dev/null || true; fi")
+#         # Set password for the custom user
+#         startup_commands.append(f"echo '{custom_user}:{root_password}' | chpasswd")
+#         # Add sudo permission to custom user if enabled
+#         if enable_sudo:
+#             startup_commands.append(f"echo '{custom_user} ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers")
 
-    # Find first available port
-    for port in range(range_start, range_end + 1):
-        if port not in all_used_ports:
-            print(f"   ✅ Found available port: {port}")
-            return port
+#         # # Configure root to auto-switch to custom user on SSH login
+#         # startup_commands.append(f"echo '# Auto-switch to custom user' > /root/.bashrc")
+#         # startup_commands.append(f"echo 'if [ \"$USER\" = \"root\" ] && [ -n \"$SSH_CONNECTION\" ]; then' >> /root/.bashrc")
+#         # startup_commands.append(f"echo '    exec su - {custom_user}' >> /root/.bashrc")
+#         # startup_commands.append(f"echo 'fi' >> /root/.bashrc")
 
-    return None
+#         # Add custom bashrc if provided
+#         # if custom_bashrc:
+#         #     # Split custom_bashrc into lines and append each line separately
+#         #     for line in custom_bashrc.strip().split('\n'):
+#         #         if line.strip():  # Skip empty lines
+#         #             # Escape single quotes in the line
+#         #             line_escaped = line.replace("'", "'\\''")
+#         #             startup_commands.append(f"echo '{line_escaped}' >> {home_dir}/.bashrc")
 
+#     # -----------------------------
+#     # 03 Network Configuration
+#     # -----------------------------
+#     # Network info display
+#     startup_commands.append("echo 'Container started'")
+#     startup_commands.append("echo 'Network interfaces:'")
+#     startup_commands.append("ip addr show")
+
+#     # Configure macvlan routing if enabled
+#     if enable_network_mounts and macvlan_ip:
+#         startup_commands.append('echo "100 net1_table" >> /etc/iproute2/rt_tables')
+#         startup_commands.append(f'ip route add default via {macvlan_gateway} dev net1 table net1_table')
+#         startup_commands.append(f'ip route add {macvlan_subnet} dev net1 src {macvlan_ip} table net1_table')
+#         startup_commands.append(f'ip rule add from {macvlan_ip} table net1_table')
+
+#     # Setup SSH
+#     if ssh_enabled:
+#         startup_commands.append("mkdir -p /var/run/sshd")
+#         startup_commands.append("sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config")
+#         startup_commands.append("sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config")
+#         # Add SSH keepalive settings to prevent connection drops
+#         startup_commands.append("echo 'ClientAliveInterval 60' >> /etc/ssh/sshd_config")
+#         startup_commands.append("echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config")
+#         startup_commands.append("echo 'TCPKeepAlive yes' >> /etc/ssh/sshd_config")
+#         # Start SSH server
+#         startup_commands.append("echo 'Starting SSH server...'")
+#         startup_commands.append("/usr/sbin/sshd -D")
+
+#     command_script = " && \\\n".join(startup_commands)
+#     command = ["/bin/bash", "-c", command_script]
+
+#     # Build volume mounts
+#     container_volume_mounts = []
+#     volumes = []
+
+#     if enable_volume_mounts and volume_mounts:
+#         for idx, mount in enumerate(volume_mounts):
+#             volume_name = f"volume-{idx}"
+#             host_path = mount.get("host_path")
+#             mount_path = mount.get("mount_path")
+
+#             if host_path and mount_path:
+#                 container_volume_mounts.append(
+#                     client.V1VolumeMount(
+#                         name=volume_name,
+#                         mount_path=mount_path,
+#                     )
+#                 )
+
+#                 volumes.append(
+#                     client.V1Volume(
+#                         name=volume_name,
+#                         host_path=client.V1HostPathVolumeSource(
+#                             path=host_path,
+#                             type="Directory"
+#                         ),
+#                     )
+#                 )
+
+#     # Container spec
+#     container = client.V1Container(
+#         name="main",
+#         image=image,
+#         command=command,
+#         resources=resources,
+#         volume_mounts=container_volume_mounts if container_volume_mounts else None,
+#         security_context=client.V1SecurityContext(
+#             capabilities=client.V1Capabilities(
+#                 add=["NET_ADMIN"] if enable_network_mounts else None
+#             ),
+#             privileged=True,
+#             run_as_user=0,
+#         ),
+#     )
+
+#     # Pod spec
+#     pod_spec = client.V1PodSpec(
+#         containers=[container],
+#         volumes=volumes if volumes else None,
+#         restart_policy="Always",
+#     )
+
+#     # Pod metadata with optional network annotation
+#     annotations = {}
+#     if enable_network_mounts and macvlan_network:
+#         if macvlan_ip:
+#             import json
+#             network_config = [{
+#                 "name": macvlan_network,
+#                 "namespace": "default",
+#                 "ips": [macvlan_ip]
+#             }]
+#             annotations["k8s.v1.cni.cncf.io/networks"] = json.dumps(network_config)
+#         else:
+#             if '/' not in macvlan_network:
+#                 macvlan_network_ref = f"default/{macvlan_network}"
+#             else:
+#                 macvlan_network_ref = macvlan_network
+#             annotations["k8s.v1.cni.cncf.io/networks"] = macvlan_network_ref
+
+#     pod_metadata = client.V1ObjectMeta(
+#         name=name,
+#         labels={"app": name, "managed-by": "haik8s"},
+#         annotations=annotations if annotations else None,
+#     )
+
+#     pod = client.V1Pod(
+#         api_version="v1",
+#         kind="Pod",
+#         metadata=pod_metadata,
+#         spec=pod_spec,
+#     )
+
+#     return v1.create_namespaced_pod(namespace=namespace, body=pod)
+
+
+# ============================================================================
+# Main Launch Function
+# ============================================================================
 
 def launch_openclaw(
-    username: str = "zdzhang@ihep.ac.cn",
-    container_name: str = "openclaw",
-    image_name: str = "hai-openclaw",
+    namespace: str = None,
+    pod_name: str = "hai-openclaw",
+    image: str = "hai-openclaw",
     cpu: float = 4.0,
     memory: float = 8.0,
     gpu: int = 0,
-    ssh_enabled: bool = True,
+    root_password: str = "test123",
+    # User configuration
+    enable_user_mounts: bool = True,
     custom_user: str = None,
     custom_uid: int = None,
     custom_gid: int = None,
+    custom_home: str = None,
     enable_sudo: bool = True,
     custom_bashrc: str = None,
+    # Volume configuration
+    enable_volume_mounts: bool = False,
     volume_mounts: list = None,
+    # Network configuration
+    enable_network_mounts: bool = False,
+    macvlan_network: str = None,
+    macvlan_ip: str = None,
+    macvlan_gateway: str = "10.5.6.1",
+    macvlan_subnet: str = "10.5.6.0/24",
+    ssh_enabled: bool = True,
 ):
     """
-    Launch OpenClaw service for a user.
+    Launch OpenClaw service with modular configuration.
 
     Args:
-        username: Username to launch service for
-        container_name: Name of the container
-        image_name: Name of the image to use (must exist in DB)
-        cpu: CPU cores to allocate
-        memory: Memory in GB to allocate
-        gpu: Number of GPUs to allocate
-        ssh_enabled: Whether to enable SSH access
-        custom_user: Custom username to create in container (e.g., "user")
-        custom_uid: Custom UID for the user (e.g., 21927)
-        custom_gid: Custom GID for the user (e.g., 600)
-        enable_sudo: Whether to grant sudo privileges to the user
-        custom_bashrc: Additional .bashrc configuration to append
-        volume_mounts: List of volume mounts [{"host_path": "/path", "mount_path": "/path"}]
+        namespace: K8s namespace
+        pod_name: Pod name
+        image: Image name from database
+        cpu: CPU cores
+        memory: Memory in GB
+        gpu: Number of GPUs
+        root_password: Root password
+        enable_user_mounts: Enable custom user setup
+        custom_user: Custom username
+        custom_uid: Custom UID
+        custom_gid: Custom GID
+        custom_home: Custom home directory
+        enable_sudo: Enable sudo
+        custom_bashrc: Additional bashrc
+        enable_volume_mounts: Enable volume mounts
+        volume_mounts: Volume mounts list
+        enable_network_mounts: Enable macvlan network
+        macvlan_network: NetworkAttachmentDefinition name
+        macvlan_ip: Specific macvlan IP
+        macvlan_gateway: Gateway IP for macvlan
+        macvlan_subnet: Subnet for macvlan
+        ssh_enabled: Enable SSH service
     """
-    print(f"🚀 Launching OpenClaw for user: {username}")
-    print(f"   Container name: {container_name}")
+    print(f"🚀 Launching OpenClaw")
+    print(f"   Pod: {pod_name}")
+    print(f"   Image: {image}")
     print(f"   Resources: CPU={cpu}, Memory={memory}GB, GPU={gpu}")
-    print(f"   SSH enabled: {ssh_enabled}")
-    if custom_user and custom_uid and custom_gid:
-        print(f"   Custom user: {custom_user} (UID: {custom_uid}, GID: {custom_gid})")
-        print(f"   Sudo enabled: {enable_sudo}")
-    if volume_mounts:
-        print(f"   Volume mounts:")
-        for mount in volume_mounts:
-            print(f"     - {mount.get('host_path')} -> {mount.get('mount_path')}")
+
+    if enable_user_mounts and custom_user:
+        home_display = custom_home if custom_home else f"/home/{custom_user}"
+        print(f"   👤 User: {custom_user} (UID={custom_uid}, GID={custom_gid}, home={home_display})")
+
+    if enable_volume_mounts and volume_mounts:
+        print(f"   📁 Volume mounts: {len(volume_mounts)} mount(s)")
+
+    if enable_network_mounts and macvlan_network:
+        print(f"   🌐 Macvlan: {macvlan_network}")
+        if macvlan_ip:
+            print(f"   📍 IP: {macvlan_ip}")
     print()
 
-    # Initialize DB and K8s client
-    print("📦 Initializing database...")
-    init_db()
-
+    # Initialize K8s
     print("☸️  Initializing Kubernetes client...")
     init_k8s_client(Config.KUBECONFIG_PATH)
     print()
 
-    # Import engine after init_db() has been called
-    from db.database import engine
+    print(f"🏷️  Kubernetes names:")
+    print(f"   Namespace: {namespace}")
+    print(f"   Pod: {pod_name}")
+    print()
 
-    with Session(engine) as session:
-        # Get user
-        print(f"👤 Looking up user: {username}")
-        user = get_user_by_username(session, username)
-        if not user:
-            print(f"❌ Error: User '{username}' not found in database")
-            print("   Please create the user first or check the username")
-            return False
-        print(f"✅ User found: {user.username} (ID: {user.id}, Role: {user.role})")
-        print(f"   Quota: CPU={user.cpu_quota}, Memory={user.memory_quota}GB, GPU={user.gpu_quota}")
-        print()
+    # Check if pod exists
+    print("🔍 Checking if pod exists...")
+    existing_status = get_pod_status(namespace, pod_name)
+    if existing_status:
+        print(f"⚠️  Pod already exists: {existing_status}")
+        return False
+    print("✅ Pod name available")
+    print()
 
-        # Get image
-        print(f"🐳 Looking up image: {image_name}")
-        statement = select(Image).where(Image.name == image_name, Image.is_active == True)
-        image = session.exec(statement).first()
-        if not image:
-            print(f"❌ Error: Image '{image_name}' not found or inactive")
-            print("   Available images:")
-            all_images = session.exec(select(Image).where(Image.is_active == True)).all()
-            for img in all_images:
-                print(f"   - {img.name}: {img.registry_url}")
-            return False
-        print(f"✅ Image found: {image.name}")
-        print(f"   Registry URL: {image.registry_url}")
-        print(f"   Description: {image.description}")
-        print()
+    # Create K8s resources
+    try:
+        print("☸️  Creating Kubernetes resources...")
 
-        # Check quota
-        print("📊 Checking user quota...")
-        ok, msg = check_quota(session, user, cpu, memory, gpu)
-        if not ok:
-            print(f"❌ Quota check failed: {msg}")
-            return False
-        print("✅ Quota check passed")
-        print()
+        # Ensure namespace
+        print(f"   Creating namespace: {namespace}")
+        ensure_namespace(namespace)
 
-        # Generate K8s names
-        namespace = make_namespace(username)
-        sanitized_username = sanitize_k8s_name(username)
-        pod_name = f"{sanitized_username}-{container_name}"
-        service_name = f"{pod_name}-ssh" if ssh_enabled else None
-
-        print(f"🏷️  Kubernetes resource names:")
-        print(f"   Namespace: {namespace}")
-        print(f"   Pod name: {pod_name}")
-        if service_name:
-            print(f"   Service name: {service_name}")
-        print()
-
-        # Check if pod already exists
-        print("🔍 Checking if pod already exists...")
-        existing_status = get_pod_status(namespace, pod_name)
-        if existing_status:
-            print(f"⚠️  Warning: Pod already exists with status: {existing_status}")
-            print("   Please delete the existing pod first or use a different container name")
-            return False
-        print("✅ Pod name is available")
-        print()
-
-        # Create DB record
-        print("💾 Creating database record...")
-        container = create_container(
-            session,
-            name=container_name,
-            user_id=user.id,
-            image_id=image.id,
-            k8s_namespace=namespace,
-            k8s_pod_name=pod_name,
-            k8s_service_name=service_name,
-            cpu_request=cpu,
-            memory_request=memory,
-            gpu_request=gpu,
+        # Create pod
+        print(f"   Creating pod: {pod_name}")
+        create_openclaw_pod(
+            namespace=namespace,
+            name=pod_name,
+            image=image,
+            cpu=cpu,
+            memory=memory,
+            gpu=gpu,
+            root_password=root_password,
+            enable_user_mounts=enable_user_mounts,
+            custom_user=custom_user,
+            custom_uid=custom_uid,
+            custom_gid=custom_gid,
+            custom_home=custom_home,
+            enable_sudo=enable_sudo,
+            custom_bashrc=custom_bashrc,
+            enable_volume_mounts=enable_volume_mounts,
+            volume_mounts=volume_mounts,
+            enable_network_mounts=enable_network_mounts,
+            macvlan_network=macvlan_network,
+            macvlan_ip=macvlan_ip,
+            macvlan_gateway=macvlan_gateway,
+            macvlan_subnet=macvlan_subnet,
             ssh_enabled=ssh_enabled,
-            ssh_node_port=None,  # LoadBalancer doesn't use NodePort
-            status=ContainerStatus.CREATING,
         )
-        print(f"✅ Container record created (ID: {container.id})")
+        print(f"   ✅ Pod created")
+
         print()
+        print("🎉 OpenClaw launched successfully!")
+        print()
+        print("📋 Details:")
+        print(f"   Namespace: {namespace}")
+        print(f"   Pod: {pod_name}")
 
-        # Create K8s resources
-        try:
-            print("☸️  Creating Kubernetes resources...")
+        if ssh_enabled:
+            ssh_user = custom_user if custom_user else "root"
+            if enable_network_mounts and macvlan_ip:
+                print(f"   SSH: ssh {ssh_user}@{macvlan_ip}")
+                print(f"   Password: {root_password}")
+            else:
+                print(f"   SSH: Waiting for macvlan IP allocation")
+                print(f"   Check IP: kubectl get pods -n {namespace} {pod_name} -o wide")
 
-            # Ensure namespace exists
-            print(f"   Creating/verifying namespace: {namespace}")
-            ensure_namespace(namespace)
+        print()
+        print("💡 Tips:")
+        print(f"   - Check status: kubectl get pods -n {namespace}")
+        print(f"   - View logs: kubectl logs -n {namespace} {pod_name}")
 
-            # Create pod
-            print(f"   Creating pod: {pod_name}")
-            create_pod_with_user(
-                namespace=namespace,
-                name=pod_name,
-                image=image.registry_url,
-                cpu=cpu,
-                memory=memory,
-                gpu=gpu,
-                ssh_enabled=ssh_enabled,
-                custom_user=sanitized_username,
-                custom_uid=custom_uid,
-                custom_gid=custom_gid,
-                enable_sudo=enable_sudo,
-                custom_bashrc=custom_bashrc,
-                volume_mounts=volume_mounts,
-            )
-            print(f"   ✅ Pod created successfully")
+        return True
 
-            # Create SSH LoadBalancer service if enabled
-            lb_ip = None
-            if ssh_enabled:
-                print(f"   Creating SSH LoadBalancer service: {service_name}")
-                from inject_ssh_loadbalancer import (
-                    create_ssh_loadbalancer_service,
-                    get_loadbalancer_ip
-                )
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
 
-                # Create LoadBalancer Service
-                service = create_ssh_loadbalancer_service(
-                    namespace=namespace,
-                    pod_name=pod_name,
-                    service_name=service_name,
-                )
-                print(f"   ✅ SSH LoadBalancer service created")
 
-                # Wait for LoadBalancer IP allocation
-                print(f"   ⏳ Waiting for LoadBalancer IP allocation (MetalLB)...")
-                lb_ip = get_loadbalancer_ip(namespace, service_name, timeout=60)
-                if lb_ip:
-                    print(f"   ✅ LoadBalancer IP allocated: {lb_ip}")
-                else:
-                    print(f"   ⚠️  Warning: LoadBalancer IP not allocated yet")
-                    print(f"   It may take a few moments. Check with:")
-                    print(f"   kubectl get svc -n {namespace} {service_name}")
+# ============================================================================
+# CLI Configuration
+# ============================================================================
 
-            print()
-            print("🎉 OpenClaw service launched successfully!")
-            print()
-            print("📋 Service Details:")
-            print(f"   Container ID: {container.id}")
-            print(f"   Container Name: {container.name}")
-            print(f"   Status: {container.status}")
-            print(f"   Namespace: {namespace}")
-            print(f"   Pod Name: {pod_name}")
+def default_volume_mounts():
+    """Default volume mounts for OpenClaw"""
+    return [
+        {
+            "host_path": "/aifs/user/home/zdzhang", 
+            "mount_path": "/aifs/user/home/zdzhang",
+        },
+        {
+            "host_path": "/aifs/user/data/zdzhang",  
+            "mount_path": "/aifs/user/data/zdzhang",
+        },
+    ]
 
-            if ssh_enabled:
-                if lb_ip:
-                    ssh_user = custom_user if custom_user else "root"
-                    ssh_command = f"ssh {ssh_user}@{lb_ip}"
-                    print(f"   SSH Command: {ssh_command}")
-                    print(f"   LoadBalancer IP: {lb_ip}")
-                    if custom_user:
-                        print(f"   Note: User '{custom_user}' password needs to be set manually in the container")
-                else:
-                    print(f"   Service Name: {service_name}")
-                    print(f"   ⚠️  LoadBalancer IP pending allocation")
-                    print(f"   Check with: kubectl get svc -n {namespace} {service_name}")
 
-            print()
-            print("💡 Tips:")
-            print("   - Use 'kubectl get pods -n {0}' to check pod status".format(namespace))
-            print("   - Use 'kubectl logs -n {0} {1}' to view pod logs".format(namespace, pod_name))
-            print("   - The pod may take a few minutes to start (pulling image, etc.)")
-            if custom_user and custom_uid and custom_gid:
-                print(f"   - Custom user '{custom_user}' has been created with UID {custom_uid} and GID {custom_gid}")
-                print(f"   - To set password for '{custom_user}', exec into the container and run: passwd {custom_user}")
-                print(f"   - Exec command: kubectl exec -it -n {namespace} {pod_name} -- /bin/bash")
+@dataclass
+class Args:
+    # Basic configuration
+    namespace: str = field(default="haik8s-zdzhang", metadata={"help": "K8s namespace"})
+    pod_name: str = field(default="hai-openclaw-0", metadata={"help": "Pod name"})
+    image: str = field(default="dockerhub.ihep.ac.cn/hepai/hai-openclaw:latest", metadata={"help": "Image name from DB"})
+    cpu: float = field(default=4.0, metadata={"help": "CPU cores"})
+    memory: float = field(default=8.0, metadata={"help": "Memory in GB"})
+    gpu: int = field(default=0, metadata={"help": "Number of GPUs"})
+    root_password: str = field(default="test123", metadata={"help": "Root password"})
 
-            return True
+    # User configuration
+    enable_user_mounts: bool = field(default=True, metadata={"help": "Enable custom user"})
+    custom_user: str = field(default="zdzhang", metadata={"help": "Custom username"})
+    custom_uid: int = field(default=21927, metadata={"help": "Custom UID"})
+    custom_gid: int = field(default=600, metadata={"help": "Custom GID"})
+    custom_home: str = field(default="/aifs/user/home/zdzhang", metadata={"help": "Custom home directory"})
+    enable_sudo: bool = field(default=True, metadata={"help": "Enable sudo"})
+    custom_bashrc_file: str = field(default=str(HERE / "bashrc_openclaw.sh"), metadata={"help": "Bashrc file path"})
 
-        except Exception as e:
-            print(f"❌ Error creating Kubernetes resources: {str(e)}")
-            print(f"   Updating container status to FAILED...")
-            from db.crud import update_container
-            update_container(session, container.id, status=ContainerStatus.FAILED)
-            return False
+    # Volume configuration
+    enable_volume_mounts: bool = field(default=True, metadata={"help": "Enable volume mounts"})
+    volume_mounts: list[dict] = field(default_factory=default_volume_mounts, metadata={"help": "Volume mounts"})
+
+    # Network configuration
+    enable_network_mounts: bool = field(default=True, metadata={"help": "Enable macvlan network"})
+    macvlan_network: str = field(default="macvlan-conf-same-subnet", metadata={"help": "NetworkAttachmentDefinition name"})
+    macvlan_ip: str = field(default="10.5.6.200", metadata={"help": "Specific macvlan IP"})
+    macvlan_gateway: str = field(default="10.5.6.1", metadata={"help": "Gateway IP for macvlan"})
+    macvlan_subnet: str = field(default="10.5.6.0/24", metadata={"help": "Subnet for macvlan"})
+    ssh_enabled: bool = field(default=True, metadata={"help": "Enable SSH"})
 
 
 def main():
     """Main entry point"""
-    import argparse
+    args = hai.parse_args(Args)
 
-    parser = argparse.ArgumentParser(
-        description="Launch OpenClaw K8s service for a user",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--username",
-        default="zdzhang@ihep.ac.cn",
-        help="Username to launch service for (default: zdzhang@ihep.ac.cn)",
-    )
-    parser.add_argument(
-        "--container-name",
-        default="hai-openclaw",
-        help="Container name (default: openclaw)",
-    )
-    parser.add_argument(
-        "--image-name",
-        default="hai-openclaw",
-        help="Image name from database (default: hai-openclaw)",
-    )
-    parser.add_argument(
-        "--cpu",
-        type=float,
-        default=4.0,
-        help="CPU cores to allocate (default: 4.0)",
-    )
-    parser.add_argument(
-        "--memory",
-        type=float,
-        default=8.0,
-        help="Memory in GB to allocate (default: 8.0)",
-    )
-    parser.add_argument(
-        "--gpu",
-        type=int,
-        default=0,
-        help="Number of GPUs to allocate (default: 0)",
-    )
-    parser.add_argument(
-        "--no-ssh",
-        action="store_false",
-        help="Disable SSH access",
-    )
-    parser.add_argument(
-        "--custom-user",
-        type=str,
-        default=None,
-        help="Custom username to create in container (e.g., user)",
-    )
-    parser.add_argument(
-        "--custom-uid",
-        type=int,
-        default=21927,
-        help="Custom UID for the user (e.g., 21927)",
-    )
-    parser.add_argument(
-        "--custom-gid",
-        type=int,
-        default=600,
-        help="Custom GID for the user (e.g., 600)",
-    )
-    parser.add_argument(
-        "--enable-sudo",
-        action="store_true",
-        default=True,
-        help="Grant sudo privileges to the user (default: enabled)",
-    )
-    parser.add_argument(
-        "--no-sudo",
-        dest="enable_sudo",
-        action="store_false",
-        help="Disable sudo privileges for the user",
-    )
-    parser.add_argument(
-        "--custom-bashrc",
-        type=str,
-        default=f"@{HERE}/bashrc_openclaw.sh",
-        help="Additional .bashrc configuration (inline string or @file path)",
-    )
-
-    args = parser.parse_args()
-
-    # Handle custom bashrc from file
-    custom_bashrc = args.custom_bashrc
-    if custom_bashrc and custom_bashrc.startswith("@"):
-        # Load from file
-        bashrc_file = custom_bashrc[1:]
+    # Load custom bashrc from file
+    custom_bashrc = None
+    if args.custom_bashrc_file and Path(args.custom_bashrc_file).exists():
         try:
-            with open(bashrc_file, "r") as f:
+            with open(args.custom_bashrc_file, "r") as f:
                 custom_bashrc = f.read()
         except Exception as e:
-            print(f"Error reading bashrc file {bashrc_file}: {e}")
+            print(f"Error reading bashrc file: {e}")
             sys.exit(1)
 
-    # Mount Volumes for OpenClaw (example)
-    volume_mounts = [
-        # {"host_path": "/aifs/user/home", "mount_path": "/home"},
-        {"host_path": "/aifs/user/home/zdzhang", "mount_path": "/home/zdzhang"},
-        # {"host_path": "/aifs/user/home/zdzhang/.hai-openclaw", "mount_path": "/home/zdzhang/.hai-openclaw"},
-        # {"host_path": "/aifs/data", "mount_path": "/data"}
-    ]
+    # Prepare volume mounts
+    volume_mounts = args.volume_mounts if args.enable_volume_mounts else None
 
     success = launch_openclaw(
-        username=args.username,
-        container_name=args.container_name,
-        image_name=args.image_name,
+        namespace=args.namespace,
+        pod_name=args.pod_name,
+        image=args.image,
         cpu=args.cpu,
         memory=args.memory,
         gpu=args.gpu,
-        ssh_enabled=not args.no_ssh,
+        root_password=args.root_password,
+        # User configuration
+        enable_user_mounts=args.enable_user_mounts,
+        custom_user=args.custom_user,
         custom_uid=args.custom_uid,
         custom_gid=args.custom_gid,
+        custom_home=args.custom_home,
         enable_sudo=args.enable_sudo,
         custom_bashrc=custom_bashrc,
+        # Volume configuration
+        enable_volume_mounts=args.enable_volume_mounts,
         volume_mounts=volume_mounts,
+        # Network configuration
+        enable_network_mounts=args.enable_network_mounts,
+        macvlan_network=args.macvlan_network,
+        macvlan_ip=args.macvlan_ip,
+        macvlan_gateway=args.macvlan_gateway,
+        macvlan_subnet=args.macvlan_subnet,
+        # Service configuration
+        ssh_enabled=args.ssh_enabled,
     )
 
     sys.exit(0 if success else 1)

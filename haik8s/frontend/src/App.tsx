@@ -19,6 +19,9 @@ import AdminUsers from './pages/AdminUsers';
 import AdminImages from './pages/AdminImages';
 import AdminCluster from './pages/AdminCluster';
 import AdminPods from './pages/AdminPods';
+import Profile from './pages/Profile';
+import ContactUs from './pages/ContactUs';
+import AppDetails from './pages/AppDetails';
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
@@ -52,16 +55,22 @@ export default function App() {
           {/* 资源总览 */}
           <Route path="/overview" element={<Overview />} />
 
-          {/* 产品中心 - 容器服务 */}
-          <Route path="/" element={<Dashboard />} />
+          {/* 产品中心 - 应用服务 */}
+          <Route path="/" element={<AppService />} />
+          <Route path="/apps" element={<AppService />} />
+          <Route path="/apps/:appId/details" element={<AppDetails />} />
+
+          {/* 产品中心 - 容器服务（隐藏，保留路由以防直接访问） */}
+          <Route path="/containers" element={<Dashboard />} />
           <Route path="/containers/new" element={<CreateContainer />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
 
-          {/* 产品中心 - 应用服务 */}
-          <Route path="/apps" element={<AppService />} />
-
           {/* 参考文档 */}
           <Route path="/docs" element={<Documentation />} />
+
+          {/* 设置 */}
+          <Route path="/settings/profile" element={<Profile />} />
+          <Route path="/settings/contact" element={<ContactUs />} />
 
           {/* 管理员 */}
           <Route

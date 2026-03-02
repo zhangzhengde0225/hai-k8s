@@ -47,6 +47,22 @@ def delete_service(namespace: str, service_name: str):
             raise
 
 
+def get_used_nodeports() -> set[int]:
+    """Return the set of NodePorts currently allocated across the entire cluster."""
+    v1 = get_core_v1()
+    used = set()
+    try:
+        services = v1.list_service_for_all_namespaces()
+        for svc in services.items:
+            if svc.spec and svc.spec.ports:
+                for port in svc.spec.ports:
+                    if port.node_port:
+                        used.add(port.node_port)
+    except ApiException:
+        pass
+    return used
+
+
 def get_service(namespace: str, service_name: str) -> Optional[client.V1Service]:
     """Get a service"""
     v1 = get_core_v1()

@@ -4,6 +4,7 @@ Kubernetes client initialization for HAI-K8S
 from kubernetes import client, config as k8s_config
 from kubernetes.client import CoreV1Api, AppsV1Api
 from kubernetes.client.rest import ApiException
+from pathlib import Path
 
 _core_v1: CoreV1Api = None
 _apps_v1: AppsV1Api = None
@@ -12,7 +13,18 @@ _apps_v1: AppsV1Api = None
 def init_k8s_client(kubeconfig_path: str):
     """Load kubeconfig and initialize K8s API singletons"""
     global _core_v1, _apps_v1
-    k8s_config.load_kube_config(config_file=kubeconfig_path)
+    try:
+        k8s_config.load_kube_config(config_file=kubeconfig_path)
+    except Exception as e:
+        try:
+            HOME = str(Path.home())
+            kubeconfig_path = f"{HOME}/.kube/config"
+            k8s_config.load_kube_config(config_file=kubeconfig_path)
+            print(f"Loaded kubeconfig from {kubeconfig_path}")
+        except Exception as e2:
+            raise RuntimeError(f"Failed to load kubeconfig from both {kubeconfig_path} and {HOME}/.kube/config") from e2
+
+    # k8s_config.load_kube_config(config_file=kubeconfig_path)
     _core_v1 = CoreV1Api()
     _apps_v1 = AppsV1Api()
 

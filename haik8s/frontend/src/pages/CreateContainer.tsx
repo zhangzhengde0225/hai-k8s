@@ -107,9 +107,9 @@ export default function CreateContainer() {
         {t('remainingQuota')} — {t('cpu')}: {cpuRemaining} {t('cores')}, {t('memory')}: {memRemaining} GB, {t('gpu')}: {gpuRemaining}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5 bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5 bg-white dark:bg-slate-900 p-4 md:p-6 rounded-lg shadow">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
             {t('containerName')}
           </label>
           <input
@@ -120,21 +120,21 @@ export default function CreateContainer() {
               setNameModified(true); // Mark as manually modified
             }}
             placeholder={t('containerNamePlaceholder')}
-            className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-white"
+            className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-950 dark:text-white"
           />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
             {t('containerNameHint')}
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
             {t('image')}
           </label>
           <select
             value={imageId}
             onChange={(e) => setImageId(Number(e.target.value))}
-            className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-white"
+            className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-950 dark:text-white"
           >
             <option value="">{t('selectImage')}</option>
             {images.map((img) => (
@@ -147,7 +147,7 @@ export default function CreateContainer() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               {t('cpuCores')}
             </label>
             <input
@@ -157,11 +157,11 @@ export default function CreateContainer() {
               step={0.1}
               value={cpu}
               onChange={(e) => setCpu(Number(e.target.value))}
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+              className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               {t('memoryGB')}
             </label>
             <input
@@ -171,11 +171,11 @@ export default function CreateContainer() {
               step={0.5}
               value={memory}
               onChange={(e) => setMemory(Number(e.target.value))}
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+              className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               {t('gpu')}
             </label>
             <input
@@ -185,7 +185,7 @@ export default function CreateContainer() {
               step={1}
               value={gpu}
               onChange={(e) => setGpu(Number(e.target.value))}
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm dark:bg-gray-900 dark:text-white"
+              className="w-full border border-gray-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm dark:bg-slate-950 dark:text-white"
             />
           </div>
         </div>
@@ -198,7 +198,7 @@ export default function CreateContainer() {
             onChange={(e) => setSshEnabled(e.target.checked)}
             className="rounded"
           />
-          <label htmlFor="ssh" className="text-sm text-gray-700 dark:text-gray-300">
+          <label htmlFor="ssh" className="text-sm text-gray-700 dark:text-slate-300">
             {t('enableSSH')}
           </label>
         </div>

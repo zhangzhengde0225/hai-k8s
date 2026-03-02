@@ -4,6 +4,7 @@ export interface User {
   email: string;
   full_name: string | null;
   role: string;
+  auth_provider: string | null;
   is_active: boolean;
   cpu_quota: number;
   memory_quota: number;
@@ -13,6 +14,11 @@ export interface User {
   gpu_used: number;
   created_at: string;
   last_login_at: string | null;
+  // Cluster info
+  cluster_username: string | null;
+  cluster_uid: number | null;
+  cluster_gid: number | null;
+  cluster_home_dir: string | null;
 }
 
 export interface Container {
@@ -77,6 +83,18 @@ export interface ClusterNode {
   gpu_allocatable: string;
 }
 
+export interface VolumeMountConfig {
+  host_path: string;
+  mount_path: string;
+}
+
+export interface IPAllocation {
+  has_ip: boolean;
+  ip_address: string | null;
+  allocated_at: string | null;
+  notes?: string | null;
+}
+
 export interface Application {
   id: string;
   name: string;
@@ -99,7 +117,17 @@ export interface Application {
     gpu_request: number;
     ssh_enabled: boolean;
     storage_path: string | null;
+    volume_mounts: VolumeMountConfig[] | null;
+    bound_ip: string | null;
     status: 'draft' | 'validated' | 'archived';
+    // User sync configuration
+    sync_user?: boolean;
+    user_uid?: number | null;
+    user_gid?: number | null;
+    user_home_dir?: string | null;
+    enable_sudo?: boolean;
+    root_password?: string | null;
+    user_password?: string | null;
   } | null;
 }
 
@@ -124,10 +152,18 @@ export interface AppConfig {
   gpu_request: number;
   ssh_enabled: boolean;
   storage_path: string | null;
+  volume_mounts: VolumeMountConfig[] | null;
+  bound_ip: string | null;
   status: 'draft' | 'validated' | 'archived';
   instance_count: number;
   created_at: string;
   updated_at: string;
+  // User sync configuration
+  sync_user?: boolean;
+  user_uid?: number | null;
+  user_gid?: number | null;
+  user_home_dir?: string | null;
+  enable_sudo?: boolean;
 }
 
 export interface SaveConfigData {
@@ -137,6 +173,16 @@ export interface SaveConfigData {
   gpu: number;
   sshEnabled: boolean;
   storagePath?: string;
+  volumeMounts?: VolumeMountConfig[];
+  boundIp?: string | null;
+  // User sync configuration
+  syncUser?: boolean;
+  userUid?: number | null;
+  userGid?: number | null;
+  userHomeDir?: string | null;
+  enableSudo?: boolean;
+  rootPassword?: string | null;
+  userPassword?: string | null;
 }
 
 // ==================== POD管理相关类型 ====================

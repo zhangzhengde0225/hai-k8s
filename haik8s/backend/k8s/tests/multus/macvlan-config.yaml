@@ -1,0 +1,22 @@
+# macvlan-conf.yaml
+# 节点网段: 10.5.6.0/24
+# 容器网段: 10.5.8.0/24
+# 不设置默认网关，仅同网段通信
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: macvlan-conf
+  namespace: default
+spec:
+  config: '{
+    "cniVersion": "0.3.1",
+    "type": "macvlan",
+    "master": "enp97s0f0np0",
+    "mode": "bridge",
+    "ipam": {
+      "type": "host-local",
+      "subnet": "10.5.8.0/24",
+      "rangeStart": "10.5.8.100",
+      "rangeEnd": "10.5.8.200"
+    }
+  }'

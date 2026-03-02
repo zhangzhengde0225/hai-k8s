@@ -1,7 +1,6 @@
 """
 Container API endpoints
 """
-import re
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
@@ -23,63 +22,10 @@ from config import Config
 from k8s.client import ensure_namespace
 from k8s.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_pod_events, get_pod_details
 from k8s.services import create_ssh_service, delete_service
+from utils.k8s_names import sanitize_k8s_name, make_namespace
 
 
 router = APIRouter(prefix="/api/containers", tags=["Containers"])
-
-
-def _sanitize_k8s_name(name: str) -> str:
-    """
-    Sanitize a string to make it Kubernetes-compatible (RFC 1123 label).
-
-    Rules:
-    - Lowercase alphanumeric characters or '-'
-    - Must start and end with alphanumeric character
-    - Max 63 characters
-    """
-    # If name contains @, take only the part before @
-    if '@' in name:
-        name = name.split('@')[0]
-
-    # Convert to lowercase
-    name = name.lower()
-
-    # Replace non-alphanumeric characters with hyphen
-    name = re.sub(r'[^a-z0-9-]', '-', name)
-
-    # Replace multiple consecutive hyphens with single hyphen
-    name = re.sub(r'-+', '-', name)
-
-    # Remove leading and trailing hyphens
-    name = name.strip('-')
-
-    # If empty or invalid, use a default
-    if not name:
-        name = 'user'
-
-    # Ensure it starts with alphanumeric
-    if not name[0].isalnum():
-        name = 'u' + name
-
-    # Ensure it ends with alphanumeric
-    if not name[-1].isalnum():
-        name = name + '0'
-
-    # Truncate to max 63 characters (leaving room for prefix)
-    max_suffix_length = 63 - len(Config.K8S_NAMESPACE_PREFIX)
-    if len(name) > max_suffix_length:
-        name = name[:max_suffix_length].rstrip('-')
-        # Ensure still ends with alphanumeric after truncation
-        if name and not name[-1].isalnum():
-            name = name.rstrip('-') + '0'
-
-    return name
-
-
-def _make_namespace(username: str) -> str:
-    """Generate a Kubernetes-compatible namespace name from username."""
-    sanitized = _sanitize_k8s_name(username)
-    return f"{Config.K8S_NAMESPACE_PREFIX}{sanitized}"
 
 
 def _container_to_response(c, image=None) -> ContainerResponse:
@@ -152,8 +98,8 @@ async def create_container_endpoint(
         if node_port is None:
             raise HTTPException(status_code=503, detail="No available NodePorts")
 
-    namespace = _make_namespace(current_user.username)
-    sanitized_username = _sanitize_k8s_name(current_user.username)
+    namespace = make_namespace(current_user.username)
+    sanitized_username = sanitize_k8s_name(current_user.username)
     pod_name = f"{sanitized_username}-{req.name}"
     service_name = f"{pod_name}-ssh" if req.ssh_enabled else None
 

@@ -156,7 +156,7 @@ export default function AdminPods() {
       Pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
       Failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
       Succeeded: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-      Unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+      Unknown: 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300',
     };
     return colors[phase] || colors.Unknown;
   };
@@ -175,7 +175,7 @@ export default function AdminPods() {
   };
 
   if (loading) {
-    return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+    return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
   }
 
   return (
@@ -201,13 +201,13 @@ export default function AdminPods() {
             placeholder={t('searchPods')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-slate-700 rounded-md dark:bg-slate-900 dark:text-white"
           />
         </div>
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as any)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-white"
+          className="px-4 py-2 border border-gray-300 dark:border-slate-700 rounded-md dark:bg-slate-900 dark:text-white"
         >
           <option value="all">{t('allPods')}</option>
           <option value="system">{t('systemManaged')}</option>
@@ -216,11 +216,11 @@ export default function AdminPods() {
       </div>
 
       {/* POD list table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900 text-left text-gray-500 dark:text-gray-400 uppercase text-xs">
+              <tr className="bg-gray-50 dark:bg-slate-950 text-left text-gray-500 dark:text-slate-400 uppercase text-xs">
                 <th className="px-4 py-3">{t('namespace')}</th>
                 <th className="px-4 py-3">{t('podName')}</th>
                 <th className="px-4 py-3">{t('status')}</th>
@@ -232,14 +232,14 @@ export default function AdminPods() {
                 <th className="px-4 py-3">{t('actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {filteredPods.map((pod) => {
                 const readyContainers = pod.containers.filter(c => c.ready).length;
                 const totalContainers = pod.containers.length;
 
                 return (
                   <tr key={`${pod.namespace}-${pod.name}`}>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400 font-mono text-xs">
                       {pod.namespace}
                     </td>
                     <td className="px-4 py-3 font-medium dark:text-white">
@@ -250,15 +250,15 @@ export default function AdminPods() {
                         {pod.phase}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400">
                       <span className={readyContainers === totalContainers ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}>
                         {readyContainers}/{totalContainers}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400 text-xs">
                       {pod.node_name || '-'}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs font-mono">
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400 text-xs font-mono">
                       {pod.resource_requests.cpu || '-'} / {pod.resource_requests.memory || '-'}
                     </td>
                     <td className="px-4 py-3">
@@ -267,12 +267,12 @@ export default function AdminPods() {
                           System
                         </span>
                       ) : (
-                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300 rounded-full">
                           External
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400 text-xs">
                       {getAgeString(pod.created_at)}
                     </td>
                     <td className="px-4 py-3">
@@ -316,7 +316,7 @@ export default function AdminPods() {
       </div>
 
       {/* Statistics */}
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-4 text-sm text-gray-500 dark:text-slate-400">
         {t('showingPods')}: {filteredPods.length} / {pods.length}
       </div>
     </div>

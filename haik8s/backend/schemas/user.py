@@ -12,6 +12,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     role: str
+    auth_provider: Optional[str] = None
     is_active: bool
     cpu_quota: float
     memory_quota: float
@@ -21,6 +22,11 @@ class UserResponse(BaseModel):
     gpu_used: int = 0
     created_at: datetime
     last_login_at: Optional[datetime] = None
+    # Cluster info
+    cluster_username: Optional[str] = None
+    cluster_uid: Optional[int] = None
+    cluster_gid: Optional[int] = None
+    cluster_home_dir: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -8,7 +8,7 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  theme: 'light',
+  theme: 'dark',
 
   setTheme: (theme) => {
     localStorage.setItem('theme', theme);
@@ -30,8 +30,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (stored) {
       get().setTheme(stored);
     } else {
-      // Set default to light
-      get().setTheme('light');
+      // Set default to dark
+      get().setTheme('dark');
     }
   }
 }));

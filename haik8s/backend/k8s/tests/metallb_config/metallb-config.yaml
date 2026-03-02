@@ -1,0 +1,21 @@
+# metallb-config.yaml
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: ihep-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 10.5.8.11-10.5.8.254
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: l2-advertise
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - ihep-pool
+  interfaces:
+  - enp97s0f0np0
+

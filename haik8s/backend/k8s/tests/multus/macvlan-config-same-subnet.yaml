@@ -1,0 +1,24 @@
+# macvlan-conf-same-subnet.yaml
+# 使用与节点相同的网段 10.5.6.0/24
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: macvlan-conf-same-subnet
+  namespace: default
+spec:
+  config: '{
+    "cniVersion": "0.3.1",
+    "type": "macvlan",
+    "master": "enp97s0f0np0",
+    "mode": "bridge",
+    "ipam": {
+      "type": "host-local",
+      "subnet": "10.5.6.0/24",
+      "rangeStart": "10.5.6.200",
+      "rangeEnd": "10.5.6.250",
+      "routes": [
+        { "dst": "0.0.0.0/0" }
+      ],
+      "gateway": "10.5.6.1"
+    }
+  }'

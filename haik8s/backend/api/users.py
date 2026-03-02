@@ -27,6 +27,7 @@ async def get_me(
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role.value,
+        auth_provider=current_user.auth_provider.value if current_user.auth_provider else None,
         is_active=current_user.is_active,
         cpu_quota=current_user.cpu_quota,
         memory_quota=current_user.memory_quota,
@@ -36,4 +37,8 @@ async def get_me(
         gpu_used=usage["gpu_used"],
         created_at=current_user.created_at,
         last_login_at=current_user.last_login_at,
+        cluster_username=current_user.cluster_username,
+        cluster_uid=current_user.cluster_uid,
+        cluster_gid=current_user.cluster_gid,
+        cluster_home_dir=current_user.cluster_home_dir,
     )

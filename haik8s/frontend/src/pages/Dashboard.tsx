@@ -10,7 +10,7 @@ const statusColors: Record<string, string> = {
   running: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   creating: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  stopped: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  stopped: 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300',
   failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 };
 
@@ -40,16 +40,16 @@ export default function Dashboard() {
   }, []);
 
   if (loading) {
-    return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+    return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
   }
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{t('myContainers')}</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text dark:text-transparent">{t('myContainers')}</h2>
         <Link
           to="/containers/new"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium dark:shadow-lg dark:shadow-blue-500/30"
         >
           <PlusCircle size={16} />
           <span>{t('newContainer', { ns: 'common' })}</span>
@@ -57,8 +57,8 @@ export default function Dashboard() {
       </div>
 
       {containers.length === 0 ? (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-          <p className="text-gray-500 dark:text-gray-400 mb-4">{t('noContainers')}</p>
+        <div className="text-center py-12 bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg shadow border border-transparent dark:border-slate-700/50">
+          <p className="text-gray-500 dark:text-slate-400 mb-4">{t('noContainers')}</p>
           <Link
             to="/containers/new"
             className="text-blue-600 dark:text-blue-400 hover:underline"
@@ -72,7 +72,7 @@ export default function Dashboard() {
             <Link
               key={c.id}
               to={`/containers/${c.id}`}
-              className="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow p-5"
+              className="block bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg shadow border border-transparent dark:border-slate-700/50 dark:hover:border-blue-500/50 dark:hover:shadow-lg dark:hover:shadow-blue-500/20 hover:shadow-md transition-all p-5"
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900 dark:text-white truncate flex-1 mr-2">
@@ -80,16 +80,16 @@ export default function Dashboard() {
                 </h3>
                 <span
                   className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                    statusColors[c.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    statusColors[c.status] || 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
                   {statusLabels[c.status] || c.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate mb-2">
+              <p className="text-sm text-gray-500 dark:text-slate-400 truncate mb-2">
                 {c.image_name || c.image_registry_url}
               </p>
-              <div className="flex gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <div className="flex gap-3 text-xs text-gray-400 dark:text-slate-500">
                 <span>CPU: {c.cpu_request}</span>
                 <span>Mem: {c.memory_request}G</span>
                 {c.gpu_request > 0 && <span>GPU: {c.gpu_request}</span>}

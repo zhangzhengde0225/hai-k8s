@@ -6,6 +6,7 @@ Author: Zhengde ZHANG
 """
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+import hashlib
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from db.models import User, UserRole
@@ -29,13 +30,26 @@ def set_jwt_config(secret_key: str, algorithm: str = "HS256", expire_minutes: in
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt"""
-    return pwd_context.hash(password)
+    """
+    Hash a password using SHA256+bcrypt.
+
+    SHA256 is used first to avoid bcrypt's 72-byte limit while maintaining
+    security for long passwords.
+    """
+    # SHA256 produces a fixed 64-character hex string (32 bytes), well under bcrypt's 72-byte limit
+    password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return pwd_context.hash(password_hash)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """
+    Verify a password against its hash.
+
+    Uses SHA256+bcrypt matching the hash_password function.
+    """
+    # Apply SHA256 first to match what was hashed
+    password_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+    return pwd_context.verify(password_hash, hashed_password)
 
 
 def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -> str:

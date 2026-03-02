@@ -14,6 +14,9 @@ import {
   Package,
   ChevronRight,
   X,
+  Settings,
+  User,
+  MessageSquare,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -42,6 +45,7 @@ export default function Sidebar() {
     products: true,
     docs: true,
     admin: true,
+    settings: true,
   });
 
   // Close sidebar on route change (mobile)
@@ -73,11 +77,12 @@ export default function Sidebar() {
       label: t('productCenter'),
       icon: <Box size={16} />,
       items: [
-        {
-          label: t('containerService'),
-          path: '/',
-          icon: <Box size={16} />,
-        },
+        // 隐藏容器服务
+        // {
+        //   label: t('containerService'),
+        //   path: '/',
+        //   icon: <Box size={16} />,
+        // },
         {
           label: t('appService'),
           path: '/apps',
@@ -94,6 +99,14 @@ export default function Sidebar() {
           path: '/docs',
           icon: <FileText size={16} />,
         },
+      ],
+    },
+    {
+      label: t('settings'),
+      icon: <Settings size={16} />,
+      items: [
+        { label: t('personalSettings'), path: '/settings/profile', icon: <User size={16} /> },
+        { label: t('contactUs'),        path: '/settings/contact', icon: <MessageSquare size={16} /> },
       ],
     },
     {
@@ -128,13 +141,13 @@ export default function Sidebar() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
       isActive
-        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-l-3 border-l-blue-600 dark:border-l-blue-400'
-        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-3 border-l-transparent'
+        ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-l-3 border-l-blue-600 dark:border-l-blue-400'
+        : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 border-l-3 border-l-transparent'
     }`;
 
   const groupHeaderClass = (expanded: boolean) =>
     `flex items-center justify-between w-full px-3 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer select-none
-    bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600`;
+    bg-gray-100 dark:bg-slate-800 dark:border dark:border-slate-700/50 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700`;
 
   return (
     <>
@@ -151,24 +164,24 @@ export default function Sidebar() {
         className={`
           fixed lg:static inset-y-0 left-0 z-50
           w-[280px] lg:w-[210px]
-          bg-white dark:bg-gray-800
-          border-r border-gray-200 dark:border-gray-700
+          bg-white dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950
+          border-r border-gray-200 dark:border-slate-700
           flex flex-col h-full
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Mobile Close Button */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
+          <span className="text-sm font-semibold text-gray-700 dark:text-slate-300">
             {t('menu', 'Menu')}
           </span>
           <button
             onClick={close}
-            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             aria-label="Close menu"
           >
-            <X size={20} className="text-gray-700 dark:text-gray-300" />
+            <X size={20} className="text-gray-700 dark:text-slate-300" />
           </button>
         </div>
 
@@ -179,7 +192,7 @@ export default function Sidebar() {
             return null;
           }
 
-          const groupKey = ['overview', 'products', 'docs', 'admin'][groupIndex];
+          const groupKey = ['overview', 'products', 'docs', 'settings', 'admin'][groupIndex];
           const isExpanded = expandedGroups[groupKey];
 
           return (

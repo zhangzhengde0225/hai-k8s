@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file
-load_dotenv(Path(__file__).parent / ".env")
-
 HERE = Path(__file__).parent
+# Load .env file
+load_dotenv(HERE / ".env")
+
 REPO_ROOT = HERE.parent.parent
 
 
@@ -40,9 +40,21 @@ class Config:
     NODEPORT_RANGE_START: int = 30000
     NODEPORT_RANGE_END: int = 32767
 
+    # Pod defaults
+    DEFAULT_ROOT_PASSWORD: str = os.getenv("DEFAULT_ROOT_PASSWORD", "haik8s123")
+    MACVLAN_NETWORK_NAME: str = os.getenv("MACVLAN_NETWORK_NAME", "macvlan-conf-same-subnet")
+    MACVLAN_GATEWAY: str = os.getenv("MACVLAN_GATEWAY", "10.5.6.1")
+    MACVLAN_SUBNET: str = os.getenv("MACVLAN_SUBNET", "10.5.6.0/24")
+
+    # HepAI
+    HEPAI_SUBAPP_ADMIN_KEY: str = os.getenv("HEPAI_SUBAPP_ADMIN_KEY", "")
+
     # CORS
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
         "http://localhost:42901",
         "http://127.0.0.1:42901",
         "https://k8s-ai.ihep.ac.cn",
     ]
+
+    def __post_init__(self):
+        pass

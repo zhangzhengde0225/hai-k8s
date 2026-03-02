@@ -1,16 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
-import { AppWindow, Play, Settings, ExternalLink, Globe } from 'lucide-react';
+import { AppWindow, Play, Square, Settings, Globe, List, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Drawer from '../components/Drawer';
 import AppConfigForm from '../components/AppConfigForm';
 import client from '../api/client';
-import type { Application, SaveConfigData } from '../types';
+import type { Application, SaveConfigData, User } from '../types';
+import { useAuthStore } from '../auth/AuthContext';
 
 export default function AppService() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const updateUser = useAuthStore((state) => state.updateUser);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -23,6 +25,15 @@ export default function AppService() {
   useEffect(() => {
     loadApplications();
   }, []);
+
+  const refreshUserInfo = async () => {
+    try {
+      const response = await client.get<User>('/users/me');
+      updateUser(response.data);
+    } catch (error) {
+      console.error('Failed to refresh user info:', error);
+    }
+  };
 
   const loadApplications = async () => {
     try {
@@ -60,6 +71,17 @@ export default function AppService() {
         gpu_request: configData.gpu,
         ssh_enabled: configData.sshEnabled,
         storage_path: configData.storagePath,
+        volume_mounts: configData.volumeMounts,
+        bound_ip: configData.boundIp,
+        // User sync configuration
+        sync_user: configData.syncUser,
+        user_uid: configData.userUid,
+        user_gid: configData.userGid,
+        user_home_dir: configData.userHomeDir,
+        enable_sudo: configData.enableSudo,
+        // Passwords
+        root_password: configData.rootPassword || null,
+        user_password: configData.userPassword || null,
       });
 
       toast.success(t('configSaved') || '配置已保存');
@@ -75,15 +97,30 @@ export default function AppService() {
   const handleLaunchInstance = async (app: Application) => {
     setActionLoading(`launch-${app.id}`);
     try {
-      await client.post(
-        `/applications/${app.id}/launch`,
-        { count: 1 }
-      );
+      await client.post(`/applications/${app.id}/launch`, { count: 1 });
       toast.success(t('instanceLaunched') || '实例已启动');
       await loadApplications();
+      // 刷新用户信息以更新资源使用量
+      await refreshUserInfo();
+      // 自动跳转到详情页面
+      navigate(`/apps/${app.id}/details`);
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || t('launchFailed') || '启动失败';
-      toast.error(errorMsg);
+      toast.error(error.response?.data?.detail || t('launchFailed') || '启动失败');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStopApp = async (app: Application) => {
+    setActionLoading(`stop-${app.id}`);
+    try {
+      await client.post(`/applications/${app.id}/stop`);
+      toast.success('实例已删除');
+      await loadApplications();
+      // 刷新用户信息以更新资源使用量
+      await refreshUserInfo();
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || '操作失败');
     } finally {
       setActionLoading(null);
     }
@@ -94,7 +131,7 @@ export default function AppService() {
       case 'running':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'stopped':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300';
       case 'configured':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'unconfigured':
@@ -102,7 +139,7 @@ export default function AppService() {
       case 'error':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300';
     }
   };
 
@@ -137,21 +174,21 @@ export default function AppService() {
       <div className="mb-4 md:mb-6">
         <div className="flex items-center gap-2 md:gap-3 mb-2">
           <AppWindow size={28} className="text-blue-600 md:w-8 md:h-8" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text dark:text-transparent">
             {t('applicationServices')}
           </h1>
         </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
+        <p className="text-sm md:text-base text-gray-600 dark:text-slate-400">
           {t('manageApplications')}
         </p>
       </div>
 
       {/* Applications Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         {applications.map((app) => (
           <div
             key={app.id}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg shadow border border-gray-200 dark:border-slate-700/50 hover:shadow-lg dark:hover:border-blue-500/50 dark:hover:shadow-blue-500/20 transition-all"
           >
             <div className="p-4 md:p-6">
               {/* App Header */}
@@ -164,7 +201,7 @@ export default function AppService() {
                     <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white truncate">
                       {app.name}
                     </h3>
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 truncate">
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-slate-400 truncate">
                       {app.version}
                     </p>
                   </div>
@@ -175,14 +212,14 @@ export default function AppService() {
               </div>
 
               {/* App Description */}
-              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-3 md:mb-4 line-clamp-2">
+              <p className="text-xs md:text-sm text-gray-600 dark:text-slate-400 mb-3 md:mb-4 line-clamp-2">
                 {app.description}
               </p>
 
               {/* App Stats */}
-              <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-gray-200 dark:border-slate-700">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">
                     {t('instances')}
                   </p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -190,7 +227,7 @@ export default function AppService() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">
                     {t('endpoint')}
                   </p>
                   {app.endpoint ? (
@@ -210,48 +247,69 @@ export default function AppService() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                {/* Launch or Configure button */}
-                {app.is_configured ? (
-                  <button
-                    onClick={() => handleLaunchInstance(app)}
-                    disabled={actionLoading === `launch-${app.id}`}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
-                  >
-                    <Play size={14} className="md:w-4 md:h-4" />
-                    <span>{actionLoading === `launch-${app.id}` ? t('launching') || '启动中...' : t('launch')}</span>
+              <div className="flex items-center gap-2">
+                {actionLoading === `launch-${app.id}` ? (
+                  <button disabled className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg opacity-70 cursor-not-allowed text-xs md:text-sm">
+                    <Loader2 size={14} className="animate-spin md:w-4 md:h-4" />
+                    <span className="whitespace-nowrap">{t('launching') || '启动中...'}</span>
                   </button>
+                ) : actionLoading === `stop-${app.id}` ? (
+                  <button disabled className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg opacity-70 cursor-not-allowed text-xs md:text-sm">
+                    <Loader2 size={14} className="animate-spin md:w-4 md:h-4" />
+                    <span className="whitespace-nowrap">停止中...</span>
+                  </button>
+                ) : app.status === 'running' ? (
+                  <>
+                    <button
+                      onClick={() => handleStopApp(app)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm"
+                    >
+                      <Square size={14} className="md:w-4 md:h-4" />
+                      <span className="whitespace-nowrap">{t('stopApp') || '停止'}</span>
+                    </button>
+                    <button
+                      onClick={() => navigate(`/apps/${app.id}/details`)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-xs md:text-sm"
+                    >
+                      <List size={14} className="md:w-4 md:h-4" />
+                      <span className="whitespace-nowrap">{t('viewDetails') || '查看详情'}</span>
+                    </button>
+                  </>
+                ) : app.is_configured ? (
+                  <>
+                    <button
+                      onClick={() => handleLaunchInstance(app)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs md:text-sm"
+                    >
+                      <Play size={14} className="md:w-4 md:h-4" />
+                      <span className="whitespace-nowrap">{t('launch')}</span>
+                    </button>
+                    {(app.total_instances ?? 0) > 0 ? (
+                      <button
+                        onClick={() => navigate(`/apps/${app.id}/details`)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-xs md:text-sm"
+                      >
+                        <List size={14} className="md:w-4 md:h-4" />
+                        <span className="whitespace-nowrap">{t('viewDetails') || '查看详情'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleConfigureApp(app)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-xs md:text-sm"
+                      >
+                        <Settings size={14} className="md:w-4 md:h-4" />
+                        <span className="whitespace-nowrap">{t('editConfig')}</span>
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <button
                     onClick={() => handleConfigureApp(app)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs md:text-sm"
                   >
                     <Settings size={14} className="md:w-4 md:h-4" />
-                    <span>{t('configure')}</span>
+                    <span className="whitespace-nowrap">{t('configure')}</span>
                   </button>
-                )}
-
-                {/* Edit Config button - only show if configured */}
-                {app.is_configured && (
-                  <button
-                    onClick={() => handleConfigureApp(app)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs md:text-sm"
-                  >
-                    <Settings size={14} className="md:w-4 md:h-4" />
-                    <span>{t('editConfig')}</span>
-                  </button>
-                )}
-
-                {/* Endpoint link - only show if has endpoint */}
-                {app.endpoint && (
-                  <a
-                    href={app.endpoint}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-                  >
-                    <ExternalLink size={14} className="md:w-4 md:h-4" />
-                  </a>
                 )}
               </div>
             </div>
@@ -266,7 +324,7 @@ export default function AppService() {
           <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white mb-2">
             {t('noApplications')}
           </h3>
-          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
+          <p className="text-sm md:text-base text-gray-600 dark:text-slate-400">
             {t('noApplicationsDescription')}
           </p>
         </div>

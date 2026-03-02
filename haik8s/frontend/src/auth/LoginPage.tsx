@@ -4,6 +4,8 @@ import { API_BASE } from '../config';
 import { useAuthStore } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { HelpCircle } from 'lucide-react';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import ThemeToggle from '../components/ThemeToggle';
 
 type LoginTab = 'sso' | 'local';
 
@@ -15,6 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
 
   const setAuth = useAuthStore(state => state.setAuth);
   const navigate = useNavigate();
@@ -42,10 +45,14 @@ export default function LoginPage() {
     setError('');
 
     if (!agree) {
-      setError(t('agreeFirst'));
+      setShowAgreementModal(true);
       return;
     }
 
+    await doLogin();
+  };
+
+  const doLogin = async () => {
     if (activeTab === 'local') {
       // 本地账号登录
       if (!username || !password) {
@@ -138,61 +145,76 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 dark:bg-slate-950 relative">
+      {/* 右上角主题和语言切换 */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        <ThemeToggle />
+        <LanguageSwitcher />
+      </div>
+
       {/* 左侧介绍 - 移动端隐藏或显示为顶部横幅 */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-blue-600 to-blue-800 text-white flex-col justify-center px-8 py-12 xl:px-16">
-        <div className="text-3xl xl:text-4xl font-bold mb-5">{t('appName', { ns: 'common' })}</div>
-        <div className="text-xl xl:text-2xl mb-8 tracking-wide">{t('platformSubtitle')}</div>
-        <ul className="text-base xl:text-lg leading-relaxed pl-5 space-y-3">
-          <li className="mb-3">
-            <span className="text-cyan-300 mr-2">●</span>
-            {t('featureConvenient')}
-            <div className="text-sm text-blue-100 ml-5 mt-1">
-              {t('featureConvenientDesc')}
-            </div>
-          </li>
-          <li className="mb-3">
-            <span className="text-cyan-300 mr-2">●</span>
-            {t('featurePowerful')}
-            <div className="text-sm text-blue-100 ml-5 mt-1">
-              {t('featurePowerfulDesc')}
-            </div>
-          </li>
-          <li>
-            <span className="text-cyan-300 mr-2">●</span>
-            {t('featureSecure')}
-            <div className="text-sm text-blue-100 ml-5 mt-1">
-              {t('featureSecureDesc')}
-            </div>
-          </li>
-        </ul>
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-blue-600 to-blue-800 dark:from-slate-900 dark:via-blue-950 dark:to-slate-950 text-white flex-col justify-center px-8 py-12 xl:px-16 relative dark:border-r dark:border-blue-900/30">
+        {/* 夜间模式装饰渐变 */}
+        <div className="hidden dark:block absolute inset-0 bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-transparent pointer-events-none"></div>
+        <div className="hidden dark:block absolute bottom-0 right-0 w-96 h-96 bg-blue-500/5 blur-3xl rounded-full pointer-events-none"></div>
+
+        <div className="relative z-10">
+          <div className="text-2xl xl:text-3xl font-bold mb-4 dark:bg-gradient-to-r dark:from-blue-300 dark:via-cyan-300 dark:to-blue-400 dark:bg-clip-text dark:text-transparent">{t('appName', { ns: 'common' })}</div>
+          <div className="text-lg xl:text-xl mb-6 tracking-wide dark:text-blue-200/90">{t('platformSubtitle')}</div>
+          <ul className="text-sm xl:text-base leading-relaxed pl-5 space-y-3">
+            <li className="mb-3">
+              <span className="text-cyan-300 dark:text-cyan-300 mr-2">●</span>
+              <span className="dark:text-blue-100">{t('featureConvenient')}</span>
+              <div className="text-xs text-blue-100 dark:text-blue-300/70 ml-5 mt-1">
+                {t('featureConvenientDesc')}
+              </div>
+            </li>
+            <li className="mb-3">
+              <span className="text-cyan-300 dark:text-cyan-300 mr-2">●</span>
+              <span className="dark:text-blue-100">{t('featurePowerful')}</span>
+              <div className="text-xs text-blue-100 dark:text-blue-300/70 ml-5 mt-1">
+                {t('featurePowerfulDesc')}
+              </div>
+            </li>
+            <li>
+              <span className="text-cyan-300 dark:text-cyan-300 mr-2">●</span>
+              <span className="dark:text-blue-100">{t('featureSecure')}</span>
+              <div className="text-xs text-blue-100 dark:text-blue-300/70 ml-5 mt-1">
+                {t('featureSecureDesc')}
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
 
       {/* 移动端顶部Logo横幅 */}
-      <div className="lg:hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6 px-6 text-center">
-        <div className="text-2xl font-bold mb-1">{t('appName', { ns: 'common' })}</div>
-        <div className="text-sm opacity-90">{t('platformSubtitle')}</div>
+      <div className="lg:hidden bg-gradient-to-r from-blue-600 to-blue-700 dark:from-slate-900 dark:via-blue-950 dark:to-slate-900 dark:border-b dark:border-blue-900/30 text-white py-5 px-6 text-center relative overflow-hidden">
+        <div className="hidden dark:block absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/10 pointer-events-none"></div>
+        <div className="relative z-10">
+          <div className="text-xl font-bold mb-1 dark:bg-gradient-to-r dark:from-blue-300 dark:to-cyan-300 dark:bg-clip-text dark:text-transparent">{t('appName', { ns: 'common' })}</div>
+          <div className="text-xs opacity-90 dark:text-blue-200/80">{t('platformSubtitle')}</div>
+        </div>
       </div>
 
       {/* 右侧登录表单 */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white dark:bg-gray-800 px-4 py-8 lg:py-12">
+      <div className="flex-1 flex flex-col justify-center items-center bg-white dark:bg-slate-900 px-4 py-8 lg:py-12">
         <form
           onSubmit={handleLogin}
-          className="w-full max-w-md bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 sm:p-8 lg:p-10 lg:-mt-12"
+          className="w-full max-w-md bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 shadow-lg rounded-xl p-6 sm:p-8 lg:p-10 lg:-mt-12"
         >
           {/* Logo+标题 */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-base">K8S</span>
+          <div className="flex items-center justify-center mb-5">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full flex items-center justify-center mr-2.5 shadow-blue-500/30">
+              <span className="text-white font-bold text-sm">K8S</span>
             </div>
-            <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+            <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text dark:text-transparent">
               {t('appName', { ns: 'common' })}
             </div>
-            <span className="text-gray-400 text-base sm:text-lg ml-2 font-normal">{t('platformTitle')}</span>
+            <span className="text-gray-400 text-sm sm:text-base ml-2 font-normal">{t('platformTitle')}</span>
           </div>
 
           {/* 标签切换 */}
-          <div className="flex gap-2 mb-6 mt-5">
+          <div className="flex gap-2 mb-5 mt-4">
             <button
               type="button"
               onClick={() => {
@@ -201,10 +223,10 @@ export default function LoginPage() {
                 setUsername('');
                 setPassword('');
               }}
-              className={`flex-1 py-2.5 px-4 text-sm sm:text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
+              className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
                 activeTab === 'sso'
-                  ? 'bg-gradient-to-br from-blue-800 to-blue-500 text-white shadow-lg shadow-blue-800/30'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'
               }`}
             >
               {t('ssoLogin')}
@@ -217,10 +239,10 @@ export default function LoginPage() {
                 setUsername('');
                 setPassword('');
               }}
-              className={`flex-1 py-2.5 px-4 text-sm sm:text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
+              className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold border-none rounded-lg cursor-pointer transition-all duration-200 ${
                 activeTab === 'local'
-                  ? 'bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/30'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  ? 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'
               }`}
             >
               {t('localLogin')}
@@ -229,7 +251,7 @@ export default function LoginPage() {
 
           {/* 错误提示 */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2.5 px-3.5 rounded-md text-sm mb-5 border border-red-200 dark:border-red-800">
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2 px-3 rounded-md text-xs sm:text-sm mb-4 border border-red-200 dark:border-red-800">
               {error}
             </div>
           )}
@@ -237,32 +259,35 @@ export default function LoginPage() {
           {/* 标签内容 */}
           {activeTab === 'sso' ? (
             <div>
-              <div className="text-center text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
+              <div className="text-center text-xs sm:text-sm text-gray-600 dark:text-slate-400 mb-5">
                 {t('ssoDescription')}
               </div>
             </div>
           ) : (
-            <div className="mb-5">
+            <div className="mb-4">
               <input
                 type="text"
                 placeholder={t('enterUsername')}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full py-2.5 px-3.5 text-sm sm:text-base mb-4 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full py-2 px-3 text-xs sm:text-sm mb-3 border border-gray-300 dark:border-slate-600 dark:bg-slate-950 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="password"
                 placeholder={t('enterPassword')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full py-2.5 px-3.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full py-2 px-3 text-xs sm:text-sm border border-gray-300 dark:border-slate-600 dark:bg-slate-950 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <div className="text-xs text-gray-500 dark:text-slate-400 mt-2">
+                {t('localAccountTip')}
+              </div>
             </div>
           )}
 
           {/* 协议 */}
-          <div className="mb-6">
-            <label className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex items-start">
+          <div className="mb-5">
+            <label className="text-xs text-gray-700 dark:text-slate-300 flex items-start">
               <input
                 type="checkbox"
                 checked={agree}
@@ -273,7 +298,7 @@ export default function LoginPage() {
                 {t('agreement')}
                 <a href="#" className="text-blue-600 dark:text-blue-400 underline ml-1">{t('userAgreement')}</a>
                 {agree && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                     {t('agreementSaved')}
                   </div>
                 )}
@@ -284,13 +309,13 @@ export default function LoginPage() {
           {/* 登录按钮 */}
           <button
             type="submit"
-            disabled={!agree || isLoading}
-            className={`w-full py-3 sm:py-3.5 text-base sm:text-lg font-bold text-white border-none rounded-lg flex items-center justify-center transition-all ${
-              agree && !isLoading
+            disabled={isLoading}
+            className={`w-full py-2.5 sm:py-3 text-sm sm:text-base font-bold text-white border-none rounded-lg flex items-center justify-center transition-all ${
+              !isLoading
                 ? (activeTab === 'sso'
-                    ? 'bg-gradient-to-br from-blue-800 to-blue-500 shadow-lg shadow-blue-800/30 cursor-pointer hover:from-blue-900 hover:to-blue-600'
-                    : 'bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30 cursor-pointer hover:from-blue-700 hover:to-cyan-600')
-                : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                    ? 'bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 cursor-pointer hover:from-purple-700 hover:to-pink-700'
+                    : 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-lg shadow-blue-500/30 cursor-pointer hover:from-blue-700 hover:to-cyan-700')
+                : 'bg-gray-300 dark:bg-slate-700 cursor-not-allowed'
             }`}
           >
             {isLoading ? (
@@ -305,26 +330,64 @@ export default function LoginPage() {
 
           {/* 注册提醒 - 仅在统一认证标签显示 */}
           {activeTab === 'sso' && (
-            <div className="mt-5 text-center">
+            <div className="mt-4 text-center">
               <a
                 href="https://newlogin.ihep.ac.cn/admin/register"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 dark:text-gray-400 no-underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400 no-underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
-                <HelpCircle size={16} className="flex-shrink-0" />
+                <HelpCircle size={14} className="flex-shrink-0" />
                 <span>{t('noAccount')}</span>
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">{t('registerNow')}</span>
               </a>
             </div>
           )}
 
-          <div className="text-xs text-gray-400 dark:text-gray-500 mt-6 sm:mt-8 text-center">
+          <div className="text-xs text-gray-400 dark:text-slate-500 mt-5 sm:mt-6 text-center">
             京ICP备05002790号-1 © 中国科学院高能物理研究所
-            <a href="#" className="text-blue-600 dark:text-blue-400 ml-2.5 hover:underline">联系我们</a>
+            <a href="#" className="text-blue-600 dark:text-blue-400 ml-2 hover:underline">联系我们</a>
           </div>
         </form>
       </div>
+
+      {/* Agreement confirmation modal */}
+      {showAgreementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 mx-4 w-full max-w-sm">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+              {t('agreementModalTitle')}
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-slate-300 mb-5">
+              {t('agreementModalBody')}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAgreementModal(false);
+                  handleAgreeChange(true);
+                  doLogin();
+                }}
+                className={`flex-1 py-2 text-sm font-semibold text-white rounded-lg transition-all ${
+                  activeTab === 'sso'
+                    ? 'bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                    : 'bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
+                }`}
+              >
+                {t('agreeAndLogin')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAgreementModal(false)}
+                className="flex-1 py-2 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

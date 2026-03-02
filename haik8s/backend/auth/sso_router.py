@@ -6,6 +6,7 @@ Author: Zhengde ZHANG
 """
 import secrets
 from datetime import timedelta
+from typing import Optional
 from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
@@ -14,7 +15,7 @@ import httpx
 
 from config import Config
 from db.database import get_session
-from db.crud import get_user_by_sso_id, create_sso_user, update_last_login
+from db.crud import get_user_by_sso_id, create_sso_user, update_last_login, update_cluster_info
 from auth.security import create_access_token
 
 
@@ -124,7 +125,66 @@ async def sso_callback(
             detail="Missing required fields in SSO response",
         )
 
+    # Fetch cluster info (sn/uid/gid/home_dir) from IHEP user info API — non-critical
+    cluster_username = None
+    cluster_uid = None
+    cluster_gid = None
+    cluster_home_dir = None
+    try:
+        async with httpx.AsyncClient() as info_client:
+            info_resp = await info_client.get(
+                "https://newlogin.ihep.ac.cn/api/searchUserInfo",
+                params={"username": email},
+                timeout=5.0,
+            )
+            if info_resp.status_code == 200:
+                body = info_resp.json()
+                if body.get("code") == 1:
+                    data = body["data"]
+                    cluster_username = data.get("sn") or None
+                    if cluster_username:
+                        cluster_home_dir = f"/aifs/user/home/{cluster_username}"
+                        # Use system `id` to get real uid/gid for this cluster account
+                        try:
+                            import pwd
+                            pw = pwd.getpwnam(cluster_username)
+                            cluster_uid = pw.pw_uid
+                            cluster_gid = pw.pw_gid
+                        except KeyError:
+                            # Cluster account not in local passwd db; fall back to SSO uid
+                            uid = data.get("uid")
+                            if uid:
+                                cluster_uid = int(uid)
+    except Exception:
+        pass  # 非关键步骤，获取失败不影响登录
+
+    # Fetch HepAI API key for new user — non-critical
+    api_key_of_hepai = None
+    if Config.HEPAI_SUBAPP_ADMIN_KEY:
+        try:
+            async with httpx.AsyncClient() as hepai_client:
+                hepai_resp = await hepai_client.post(
+                    "https://aiapi.ihep.ac.cn/apiv2/key/fetch_api_key",
+                    json={"username": email},
+                    headers={
+                        "Authorization": f"Bearer {Config.HEPAI_SUBAPP_ADMIN_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10.0,
+                )
+                if hepai_resp.status_code == 200:
+                    api_key_of_hepai = hepai_resp.json().get("api_key")
+        except Exception:
+            pass  # 非关键步骤，获取失败不影响登录
+
     # Create or update user
+    # umtId (sso_id) 用作数据库 user id，如无法转换则交由数据库自增
+    umt_user_id: Optional[int] = None
+    try:
+        umt_user_id = int(sso_id)
+    except (ValueError, TypeError):
+        pass
+
     user = get_user_by_sso_id(session, sso_id)
     if not user:
         user = create_sso_user(
@@ -133,9 +193,27 @@ async def sso_callback(
             username=username,
             email=email,
             full_name=full_name,
+            cluster_username=cluster_username,
+            cluster_uid=cluster_uid,
+            cluster_gid=cluster_gid,
+            cluster_home_dir=cluster_home_dir,
+            api_key_of_hepai=api_key_of_hepai,
+            user_id=umt_user_id,
         )
     else:
         update_last_login(session, user.id)
+        # 补填尚未设置的集群信息
+        if any([
+            user.cluster_username is None and cluster_username,
+            user.cluster_uid is None and cluster_uid,
+        ]):
+            update_cluster_info(
+                session, user.id,
+                cluster_username=cluster_username if user.cluster_username is None else None,
+                cluster_uid=cluster_uid if user.cluster_uid is None else None,
+                cluster_gid=cluster_gid if user.cluster_gid is None else None,
+                cluster_home_dir=cluster_home_dir if user.cluster_home_dir is None else None,
+            )
 
     # Generate JWT and redirect to frontend
     jwt_token = create_access_token(

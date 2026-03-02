@@ -10,7 +10,7 @@ import { Play, Square, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 const statusColors: Record<string, string> = {
   running: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   creating: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  stopped: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  stopped: 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300',
   failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 };
 
@@ -143,7 +143,7 @@ export default function ContainerDetail() {
     }
   };
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-slate-400">Loading...</p>;
   if (!container) return <p className="text-red-500 dark:text-red-400">Container not found</p>;
 
   const isRunning = container.status === 'running';
@@ -157,7 +157,7 @@ export default function ContainerDetail() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{container.name}</h2>
           <span
             className={`inline-block mt-1 text-xs px-2 py-1 rounded-full font-medium ${
-              statusColors[container.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+              statusColors[container.status] || 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300'
             }`}
           >
             {getStatusDisplay(container.status, container.k8s_status)}
@@ -217,7 +217,7 @@ export default function ContainerDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+      <div className="flex border-b border-gray-200 dark:border-slate-700 mb-4">
         {(['overview', 'terminal', 'logs'] as const).map((t) => (
           <button
             key={t}
@@ -225,7 +225,7 @@ export default function ContainerDetail() {
             className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
               tab === t
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -237,7 +237,7 @@ export default function ContainerDetail() {
       {tab === 'overview' && (
         <div className="space-y-6">
           {/* Container Info */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6 space-y-3">
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Container Info</h3>
             <InfoRow label="Image" value={container.image_name || container.image_registry_url || '-'} />
             <InfoRow label="CPU" value={`${container.cpu_request} cores`} />
@@ -258,14 +258,14 @@ export default function ContainerDetail() {
 
           {/* Pod Events - Show when starting or if there are events */}
           {((container.status === 'creating' || container.k8s_status === 'Pending') || events.length > 0) && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Pod Events {eventsLoading && <span className="text-sm font-normal text-gray-500">(loading...)</span>}
                 </h3>
                 <button
                   onClick={fetchEvents}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                   title="Refresh events"
                 >
                   <RefreshCw size={16} />
@@ -273,7 +273,7 @@ export default function ContainerDetail() {
               </div>
 
               {events.length === 0 && !eventsLoading ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No events yet</p>
+                <p className="text-gray-500 dark:text-slate-400 text-sm">No events yet</p>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {events.map((event, idx) => (
@@ -282,7 +282,7 @@ export default function ContainerDetail() {
                       className={`p-3 rounded-md border ${
                         event.type === 'Warning'
                           ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                          : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
+                          : 'bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700'
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -298,15 +298,15 @@ export default function ContainerDetail() {
                               {event.reason}
                             </span>
                             {event.count > 1 && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                              <span className="text-xs text-gray-500 dark:text-slate-400">
                                 (×{event.count})
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{event.message}</p>
+                          <p className="text-sm text-gray-700 dark:text-slate-300">{event.message}</p>
                         </div>
                         {event.last_timestamp && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-4">
+                          <span className="text-xs text-gray-500 dark:text-slate-400 whitespace-nowrap ml-4">
                             {new Date(event.last_timestamp).toLocaleTimeString()}
                           </span>
                         )}
@@ -342,7 +342,7 @@ export default function ContainerDetail() {
           {isRunning && token ? (
             <Terminal containerId={container.id} token={token} />
           ) : (
-            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
+            <div className="bg-gray-100 dark:bg-slate-900 rounded-lg p-8 text-center text-gray-500 dark:text-slate-400">
               Container must be running to open a terminal
             </div>
           )}
@@ -361,7 +361,7 @@ export default function ContainerDetail() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex">
-      <span className="text-sm text-gray-500 dark:text-gray-400 w-32 shrink-0">{label}</span>
+      <span className="text-sm text-gray-500 dark:text-slate-400 w-32 shrink-0">{label}</span>
       <span className="text-sm text-gray-900 dark:text-white font-mono break-all">{value}</span>
     </div>
   );

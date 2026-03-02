@@ -4,7 +4,7 @@ CRUD operations for HAI-K8S database
 import logging
 from datetime import datetime
 from typing import Optional
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
 from db.models import (
     User, Container, Image, ApplicationConfig,
@@ -12,6 +12,16 @@ from db.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+LOCAL_USER_ID_START = 10000  # 本地用户 id 起始值
+
+
+def _next_local_user_id(session: Session) -> int:
+    """返回本地用户可用的下一个 id（>= LOCAL_USER_ID_START）"""
+    max_id = session.exec(
+        select(func.max(User.id)).where(User.id >= LOCAL_USER_ID_START)
+    ).first()
+    return (max_id + 1) if max_id else LOCAL_USER_ID_START
 
 
 # ── User CRUD ──────────────────────────────────────────────────────────────
@@ -36,14 +46,26 @@ def create_sso_user(
     username: str,
     email: str,
     full_name: Optional[str] = None,
+    cluster_username: Optional[str] = None,
+    cluster_uid: Optional[int] = None,
+    cluster_gid: Optional[int] = None,
+    cluster_home_dir: Optional[str] = None,
+    api_key_of_hepai: Optional[str] = None,
+    user_id: Optional[int] = None,  # 来自 SSO umtId，显式指定 id
 ) -> User:
     user = User(
+        id=user_id,
         username=username,
         email=email,
         full_name=full_name or username,
         role=UserRole.USER,
         auth_provider=AuthProvider.IHEP_SSO,
         sso_id=sso_id,
+        cluster_username=cluster_username,
+        cluster_uid=cluster_uid,
+        cluster_gid=cluster_gid,
+        cluster_home_dir=cluster_home_dir,
+        api_key_of_hepai=api_key_of_hepai,
         last_login_at=datetime.utcnow(),
     )
     session.add(user)
@@ -60,8 +82,9 @@ def create_local_user(
     full_name: Optional[str] = None,
     role: UserRole = UserRole.USER,
 ) -> User:
-    """Create a local user with password"""
+    """Create a local user with password, id starts from LOCAL_USER_ID_START (10000)"""
     user = User(
+        id=_next_local_user_id(session),
         username=username,
         email=email,
         full_name=full_name or username,
@@ -82,6 +105,30 @@ def update_last_login(session: Session, user_id: int):
         user.last_login_at = datetime.utcnow()
         session.add(user)
         session.commit()
+
+
+def update_cluster_info(
+    session: Session,
+    user_id: int,
+    cluster_username: Optional[str] = None,
+    cluster_uid: Optional[int] = None,
+    cluster_gid: Optional[int] = None,
+    cluster_home_dir: Optional[str] = None,
+):
+    """回填集群账号信息（sn/uid/gid/home_dir），仅覆盖传入的非 None 字段"""
+    user = session.get(User, user_id)
+    if not user:
+        return
+    if cluster_username is not None:
+        user.cluster_username = cluster_username
+    if cluster_uid is not None:
+        user.cluster_uid = cluster_uid
+    if cluster_gid is not None:
+        user.cluster_gid = cluster_gid
+    if cluster_home_dir is not None:
+        user.cluster_home_dir = cluster_home_dir
+    session.add(user)
+    session.commit()
 
 
 def list_users(session: Session) -> list[User]:
@@ -172,13 +219,25 @@ def check_quota(session: Session, user: User, cpu: float, memory: float, gpu: in
 
 # ── NodePort Allocation ───────────────────────────────────────────────────
 
-def find_available_nodeport(session: Session, range_start: int = 30000, range_end: int = 32767) -> Optional[int]:
-    """Find the next unused NodePort in the given range"""
+def find_available_nodeport(
+    session: Session,
+    range_start: int = 30000,
+    range_end: int = 32767,
+    extra_excluded: Optional[set] = None,
+) -> Optional[int]:
+    """Find the next unused NodePort in the given range.
+
+    Args:
+        extra_excluded: Additional ports to exclude (e.g. ports already allocated
+                        in K8s that are not yet recorded in the DB).
+    """
     statement = select(Container.ssh_node_port).where(
         Container.ssh_node_port.isnot(None),
         Container.status != ContainerStatus.DELETED,
     )
     used_ports = set(session.exec(statement).all())
+    if extra_excluded:
+        used_ports |= extra_excluded
     for port in range(range_start, range_end + 1):
         if port not in used_ports:
             return port

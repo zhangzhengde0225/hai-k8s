@@ -86,7 +86,7 @@ export default function Documentation() {
       case 'DELETE':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-300';
     }
   };
 
@@ -96,7 +96,7 @@ export default function Documentation() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {t('apiDocs')}
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-gray-600 dark:text-slate-400">
           完整的 API 文档和使用指南
         </p>
       </div>
@@ -106,7 +106,7 @@ export default function Documentation() {
         {docSections.map((section) => (
           <div
             key={section.title}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6"
+            className="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className={`p-3 rounded-lg ${section.color}`}>
@@ -116,7 +116,7 @@ export default function Documentation() {
                 {section.title}
               </h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
               {section.description}
             </p>
             <ul className="space-y-2">
@@ -137,7 +137,7 @@ export default function Documentation() {
       </div>
 
       {/* API Endpoints */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           API 端点
         </h2>
@@ -145,7 +145,7 @@ export default function Documentation() {
           {apiEndpoints.map((endpoint, index) => (
             <div
               key={index}
-              className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+              className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-800 rounded-lg"
             >
               <span className={`px-3 py-1 rounded-md text-xs font-semibold ${getMethodColor(endpoint.method)}`}>
                 {endpoint.method}
@@ -153,7 +153,7 @@ export default function Documentation() {
               <code className="flex-1 text-sm font-mono text-gray-900 dark:text-white">
                 {endpoint.path}
               </code>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-gray-600 dark:text-slate-400">
                 {endpoint.description}
               </span>
             </div>
@@ -162,7 +162,7 @@ export default function Documentation() {
       </div>
 
       {/* Example Code */}
-      <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
+      <div className="mt-8 bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           示例代码
         </h2>

@@ -45,6 +45,11 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.USER)
     auth_provider: AuthProvider = Field(default=AuthProvider.IHEP_SSO)
     sso_id: Optional[str] = Field(default=None, unique=True, index=True)
+    cluster_username: Optional[str] = Field(default=None, index=True)  # 集群账号名（来自SSO的sn字段）
+    cluster_uid: Optional[int] = Field(default=None)   # 集群 Linux UID
+    cluster_gid: Optional[int] = Field(default=None)   # 集群 Linux GID
+    cluster_home_dir: Optional[str] = Field(default=None)  # 集群家目录，格式: /aifs/user/home/<cluster_username>
+    api_key_of_hepai: Optional[str] = Field(default=None)  # HepAI 平台 API Key（sk-xxx）
     is_active: bool = Field(default=True)
     cpu_quota: float = Field(default=4.0)  # CPU cores
     memory_quota: float = Field(default=8.0)  # GB
@@ -124,6 +129,17 @@ class ApplicationConfig(SQLModel, table=True):
     gpu_request: int = Field(default=0)
     ssh_enabled: bool = Field(default=True)
     storage_path: Optional[str] = None
+    volume_mounts: Optional[str] = None  # JSON string for volume mounts list
+    bound_ip: Optional[str] = None  # 绑定的IP地址
+
+    # 用户同步配置
+    sync_user: bool = Field(default=True)  # 是否同步用户
+    user_uid: Optional[int] = None  # 用户 UID
+    user_gid: Optional[int] = None  # 用户 GID
+    user_home_dir: Optional[str] = None  # 用户家目录
+    enable_sudo: bool = Field(default=True)  # 是否启用 sudo
+    root_password: Optional[str] = None  # root用户密码，None表示启动时自动生成
+    user_password: Optional[str] = None  # 同步用户密码，None表示与root密码相同
 
     # 状态
     status: ConfigStatus = Field(default=ConfigStatus.DRAFT)
@@ -144,3 +160,32 @@ class ApplicationConfig(SQLModel, table=True):
         UniqueConstraint('user_id', 'application_id',
                         name='uq_user_app'),
     )
+
+
+class IPAllocation(SQLModel, table=True):
+    """网络IP分配表 - 记录每个用户被分配的IP地址（每个用户只能有1个IP）"""
+    __tablename__ = "ip_allocations"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # 关联用户 - 每个用户只能有1个IP
+    user_id: int = Field(foreign_key="users.id", unique=True, index=True)
+
+    # IP地址信息 - IP范围: 10.5.6.200 - 10.5.6.254
+    ip_address: str = Field(unique=True, index=True)  # 格式: "10.5.6.200"
+
+    # 分配状态
+    is_active: bool = Field(default=True)
+    allocated_at: datetime = Field(default_factory=datetime.utcnow)
+    released_at: Optional[datetime] = None
+
+    # 备注
+    notes: Optional[str] = None
+
+    # 关系
+    user: Optional[User] = Relationship()
+
+    class Config:
+        """SQLModel配置"""
+        table = True
+        arbitrary_types_allowed = True

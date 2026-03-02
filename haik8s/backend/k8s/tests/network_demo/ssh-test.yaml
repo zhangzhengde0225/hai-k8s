@@ -13,8 +13,6 @@ spec:
       labels:
         app: ssh-test
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: aicpu005.ihep.ac.cn
       containers:
       - name: ssh-server
         image: ubuntu:22.04

@@ -10,19 +10,19 @@ export default function Header() {
   const { toggle } = useSidebarStore();
 
   return (
-    <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-6">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700/50 dark:shadow-sm dark:shadow-black/20 flex items-center justify-between px-4 md:px-6">
       {/* Left: Menu Button (mobile) + Logo and Title */}
       <div className="flex items-center gap-2 md:gap-3">
         {/* Mobile Menu Button */}
         <button
           onClick={toggle}
-          className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
           aria-label="Toggle menu"
         >
-          <Menu size={20} className="text-gray-700 dark:text-gray-300" />
+          <Menu size={20} className="text-gray-700 dark:text-slate-300" />
         </button>
 
-        <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
           <span className="text-white font-bold text-sm">K8S</span>
         </div>
         <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">

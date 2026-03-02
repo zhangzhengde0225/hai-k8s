@@ -1,0 +1,20 @@
+# metallb-config.yaml
+apiVersion: metallb.io/v1beta1
+kind: BGPPeer
+metadata:
+  name: bgp-peer
+  namespace: metallb-system
+spec:
+  peerAddress: 10.5.8.11
+  peerASN: 64501
+  myASN: 64502
+---
+apiVersion: metallb.io/v1beta1
+kind: BGPAdvertisement
+metadata:
+  name: bgp-advertise
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - ihep-pool
+
