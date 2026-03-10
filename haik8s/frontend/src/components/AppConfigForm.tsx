@@ -672,7 +672,7 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
                   type={showUserPassword ? 'text' : 'password'}
                   value={userPassword}
                   onChange={(e) => setUserPassword(e.target.value)}
-                  placeholder={t('userPasswordPlaceholder') || '留空则与容器密码相同'}
+                  placeholder={t('userPasswordPlaceholder') || '留空则与root密码相同'}
                   className="w-full px-3 py-2 pr-9 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500"
                 />
                 <button

@@ -100,17 +100,6 @@ export default function AppService() {
       const response = await client.post(`/applications/${app.id}/launch`, { count: 1 });
       toast.success(t('instanceLaunched') || '实例已启动');
 
-      // Display instance information including password
-      if (response.data.instances && response.data.instances.length > 0) {
-        const instance = response.data.instances[0];
-        if (instance.ssh_user && instance.password) {
-          toast.success(
-            `用户名: ${instance.ssh_user}, 密码: ${instance.password}`,
-            { duration: 8000 }
-          );
-        }
-      }
-
       await loadApplications();
       // 刷新用户信息以更新资源使用量
       await refreshUserInfo();
@@ -239,18 +228,35 @@ export default function AppService() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">
-                    {t('endpoint')}
-                  </p>
-                  {app.endpoint ? (
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-xs text-gray-500 dark:text-slate-400">
+                      {t('endpoint')}
+                    </p>
+                    {app.endpoint && app.status === 'running' && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded cursor-help relative group"
+                        title="仅高能所内网可访问，或先连接高能VPN"
+                      >
+                        内网IP
+                        <span className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded whitespace-nowrap z-10 pointer-events-none">
+                          仅高能所内网可访问，或先连接高能VPN
+                          <span className="absolute left-1/2 -translate-x-1/2 top-full -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></span>
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  {app.endpoint && app.status === 'running' ? (
                     <a
-                      href={app.endpoint}
+                      href={app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      title={`访问 ${app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}`}
                     >
-                      <Globe size={14} />
-                      <span className="truncate">{t('visit')}</span>
+                      <Globe size={12} className="flex-shrink-0" />
+                      <span className="truncate">
+                        {app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}
+                      </span>
                     </a>
                   ) : (
                     <p className="text-sm font-semibold text-gray-400">-</p>

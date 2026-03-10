@@ -4,7 +4,7 @@ Kubernetes Service management for HAI-K8S
 from typing import Optional
 from kubernetes import client
 from kubernetes.client.rest import ApiException
-from k8s.client import get_core_v1
+from k8s_service.client import get_core_v1
 
 
 def create_ssh_service(namespace: str, pod_name: str, node_port: int) -> client.V1Service:

@@ -3,7 +3,7 @@ Kubernetes exec/terminal streaming for HAI-K8S
 """
 from kubernetes import client
 from kubernetes.stream import stream
-from k8s.client import get_core_v1
+from k8s_service.client import get_core_v1
 
 
 def exec_into_pod(namespace: str, pod_name: str, command: list[str] = None):

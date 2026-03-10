@@ -17,11 +17,11 @@ from db.crud import (
     get_image_by_id,
 )
 from auth.dependencies import get_current_user
-from schemas.container import CreateContainerRequest, ContainerResponse, ContainerDetailResponse
+from schemas.container import CreateContainerRequest, ContainerResponse, ContainerDetailResponse, ExecCommandRequest, ExecCommandResponse
 from config import Config
-from k8s.client import ensure_namespace
-from k8s.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_pod_events, get_pod_details
-from k8s.services import create_ssh_service, delete_service
+from k8s_service.client import ensure_namespace
+from k8s_service.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_pod_events, get_pod_details
+from k8s_service.services import create_ssh_service, delete_service
 from utils.k8s_names import sanitize_k8s_name, make_namespace
 
 
@@ -239,6 +239,23 @@ async def get_container(
     image = get_image_by_id(session, container.image_id)
 
     ssh_command = None
+    ssh_user = None
+    root_password = None
+    user_password = None
+
+    # Get password from ApplicationConfig if exists
+    if container.config_id:
+        from db.models import ApplicationConfig
+        config = session.get(ApplicationConfig, container.config_id)
+        if config:
+            root_password = config.root_password
+            user_password = config.user_password
+            # Determine SSH user
+            if config.sync_user and current_user.cluster_username:
+                ssh_user = current_user.cluster_username
+            else:
+                ssh_user = "root"
+
     if container.ssh_enabled and container.ssh_node_port:
         ssh_command = f"ssh root@aicpu004 -p {container.ssh_node_port}"
 
@@ -261,6 +278,9 @@ async def get_container(
         k8s_status=k8s_status,
         ssh_command=ssh_command,
         user_id=container.user_id,
+        root_password=root_password,
+        user_password=user_password,
+        ssh_user=ssh_user,
     )
 
 
@@ -422,3 +442,64 @@ async def get_container_pod_details(
 
     details = get_pod_details(container.k8s_namespace, container.k8s_pod_name)
     return {"details": details}
+
+
+@router.post("/{container_id}/exec", response_model=ExecCommandResponse)
+async def execute_command_in_container(
+    container_id: int,
+    req: ExecCommandRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    在容器中执行命令并获取结果
+
+    此端点允许在运行中的容器内执行任意命令，适用于：
+    - 自动化配置和初始化
+    - 健康检查和状态查询
+    - 一次性管理任务
+
+    注意：此功能需要容器处于 Running 状态
+    """
+    # 验证容器所有权
+    container = get_container_by_id(session, container_id)
+    if not container or container.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    # 验证容器状态
+    if container.status != ContainerStatus.RUNNING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Container must be running to execute commands. Current status: {container.status.value}"
+        )
+
+    # 验证 K8s 信息
+    if not container.k8s_pod_name or not container.k8s_namespace:
+        raise HTTPException(status_code=400, detail="Container K8s information not available")
+
+    # 导入命令执行接口
+    from k8s_service.pods.interface import execute_command_with_separate_streams
+
+    try:
+        # 执行命令（获取真实退出码和分离的 stdout/stderr）
+        result = execute_command_with_separate_streams(
+            namespace=container.k8s_namespace,
+            pod_name=container.k8s_pod_name,
+            command=req.command,
+            timeout=req.timeout,
+        )
+
+        return ExecCommandResponse(
+            success=result.success,
+            output=result.stdout,
+            error=result.stderr or result.error_message,
+            exit_code=result.exit_code,
+            message=result.error_message if not result.success else "命令执行成功",
+        )
+
+    except Exception as e:
+        # 捕获未预期的错误
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute command: {str(e)}"
+        )

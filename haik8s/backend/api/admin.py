@@ -18,8 +18,8 @@ from db.crud import (
 from auth.dependencies import require_role
 from schemas.user import UserResponse, UserUpdateRequest
 from schemas.container import ContainerResponse
-from k8s.client import get_core_v1
-from k8s.pods import (
+from k8s_service.client import get_core_v1
+from k8s_service.pods import (
     list_all_pods_in_cluster,
     get_pod_describe,
     get_pod_logs,

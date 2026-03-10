@@ -18,7 +18,7 @@ import logging
 HERE = Path(__file__).parent
 
 from kubernetes import client
-from k8s.client import get_core_v1
+from k8s_service.client import get_core_v1
 
 
 def create_openclaw_pod(
@@ -47,6 +47,10 @@ def create_openclaw_pod(
     macvlan_gateway: str = "10.5.8.1",
     macvlan_subnet: str = "10.5.8.0/24",
     ssh_enabled: bool = True,
+    # Firewall configuration
+    enable_firewall: bool = False,
+    firewall_rules: list = None,
+    firewall_default_policy: str = "DROP",
 ) -> client.V1Pod:
     """
     Create OpenClaw pod with modular configuration.
@@ -74,6 +78,9 @@ def create_openclaw_pod(
         macvlan_gateway: Gateway IP for macvlan (default: 10.5.8.1)
         macvlan_subnet: Subnet for macvlan (default: 10.5.8.0/24)
         ssh_enabled: Enable SSH service
+        enable_firewall: Enable iptables firewall
+        firewall_rules: List of firewall rules [{"port": 22, "protocol": "tcp", "source": "0.0.0.0/0", "action": "allow"}]
+        firewall_default_policy: Default INPUT policy (DROP or ACCEPT, default: DROP)
     """
     v1 = get_core_v1()
     startup_commands = []
@@ -98,7 +105,12 @@ def create_openclaw_pod(
         resources.limits["nvidia.com/gpu"] = str(gpu)
 
     # Install basic packages
-    startup_commands.append("apt-get update && apt-get install -y openssh-server iproute2 iputils-ping net-tools sudo htop")
+    startup_commands.append("apt-get update && apt-get install -y openssh-server iproute2 iputils-ping net-tools sudo htop iptables")
+
+    # Add system paths to global bash config (for all users to access iptables, etc.)
+    # Support both Debian/Ubuntu (/etc/bash.bashrc) and RHEL/CentOS (/etc/bashrc)
+    startup_commands.append("echo 'export PATH=$PATH:/usr/sbin:/sbin' >> /etc/bash.bashrc 2>/dev/null || true")
+    startup_commands.append("echo 'export PATH=$PATH:/usr/sbin:/sbin' >> /etc/bashrc 2>/dev/null || true")
 
     # -----------------------------
     # 02 User Configuration
@@ -110,7 +122,7 @@ def create_openclaw_pod(
     # Custom user setup
     if enable_user_mounts and custom_user:
         startup_commands.append(f"groupadd -g {custom_gid} {custom_user} || true")
-        
+
         home_dir = custom_home if custom_home else f"/home/{custom_user}"
         # Use -M flag to not create home directory, then use -d to specify home path
         startup_commands.append(f"useradd -M -d {home_dir} -u {custom_uid} -g {custom_gid} -s /bin/bash {custom_user} 2>/dev/null || true")
@@ -126,21 +138,7 @@ def create_openclaw_pod(
         if enable_sudo:
             startup_commands.append(f"echo '{custom_user} ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers")
 
-        # # Configure root to auto-switch to custom user on SSH login
-        # startup_commands.append(f"echo '# Auto-switch to custom user' > /root/.bashrc")
-        # startup_commands.append(f"echo 'if [ \"$USER\" = \"root\" ] && [ -n \"$SSH_CONNECTION\" ]; then' >> /root/.bashrc")
-        # startup_commands.append(f"echo '    exec su - {custom_user}' >> /root/.bashrc")
-        # startup_commands.append(f"echo 'fi' >> /root/.bashrc")
-
-        # Add custom bashrc if provided
-        # if custom_bashrc:
-        #     # Split custom_bashrc into lines and append each line separately
-        #     for line in custom_bashrc.strip().split('\n'):
-        #         if line.strip():  # Skip empty lines
-        #             # Escape single quotes in the line
-        #             line_escaped = line.replace("'", "'\\''")
-        #             startup_commands.append(f"echo '{line_escaped}' >> {home_dir}/.bashrc")
-
+        
     # -----------------------------
     # 03 Network Configuration
     # -----------------------------
@@ -165,7 +163,70 @@ def create_openclaw_pod(
         startup_commands.append(f'ip route add {macvlan_subnet} dev net1 src {macvlan_ip} table net1_table 2>/dev/null || true')
         startup_commands.append(f'ip rule add from {macvlan_ip} table net1_table 2>/dev/null || true')
 
-    
+    # -----------------------------
+    # 04 Firewall Configuration
+    # -----------------------------
+    if enable_firewall:
+        logging.info("Configuring iptables firewall")
+
+        # Flush existing rules
+        startup_commands.append("iptables -F")
+        startup_commands.append("iptables -X")
+        startup_commands.append("iptables -t nat -F")
+        startup_commands.append("iptables -t nat -X")
+
+        # Set default policies
+        policy = firewall_default_policy.upper() if firewall_default_policy else "DROP"
+        startup_commands.append(f"iptables -P INPUT {policy}")
+        startup_commands.append("iptables -P FORWARD DROP")
+        startup_commands.append("iptables -P OUTPUT ACCEPT")
+
+        # Always allow loopback
+        startup_commands.append("iptables -A INPUT -i lo -j ACCEPT")
+        startup_commands.append("iptables -A OUTPUT -o lo -j ACCEPT")
+
+        # Allow established and related connections
+        startup_commands.append("iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT")
+
+        # Add custom firewall rules
+        if firewall_rules:
+            for rule in firewall_rules:
+                port = rule.get("port")
+                protocol = rule.get("protocol", "tcp").lower()
+                source = rule.get("source", "0.0.0.0/0")
+                action = rule.get("action", "allow").upper()
+
+                if not port:
+                    continue
+
+                # Build iptables rule
+                if action == "ALLOW" or action == "ACCEPT":
+                    iptables_action = "ACCEPT"
+                elif action == "DENY" or action == "DROP":
+                    iptables_action = "DROP"
+                elif action == "REJECT":
+                    iptables_action = "REJECT"
+                else:
+                    iptables_action = "ACCEPT"
+
+                # Support port ranges (e.g., "8000:8100")
+                if isinstance(port, str) and ":" in str(port):
+                    port_spec = f"--dport {port}"
+                else:
+                    port_spec = f"--dport {port}"
+
+                rule_cmd = f"iptables -A INPUT -p {protocol} -s {source} {port_spec} -j {iptables_action}"
+                startup_commands.append(rule_cmd)
+                logging.info(f"Added firewall rule: {rule_cmd}")
+
+        # Log dropped packets (optional, for debugging)
+        startup_commands.append("iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix 'iptables-dropped: ' --log-level 7")
+
+        # Display final firewall rules
+        startup_commands.append("echo 'Firewall rules configured:'")
+        startup_commands.append("iptables -L -n -v")
+
+
     # Setup SSH
     if ssh_enabled:
         startup_commands.append("mkdir -p /var/run/sshd")

@@ -13,7 +13,7 @@ from db.database import get_session, engine
 from db.crud import get_container_by_id, get_user_by_id
 from db.models import ContainerStatus
 from auth.security import decode_access_token
-from k8s.terminal import exec_into_pod
+from k8s_service.terminal import exec_into_pod
 
 
 router = APIRouter(tags=["Terminal"])

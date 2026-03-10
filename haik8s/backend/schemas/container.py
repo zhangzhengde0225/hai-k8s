@@ -47,3 +47,23 @@ class ContainerDetailResponse(ContainerResponse):
     k8s_status: Optional[str] = None  # live status from K8s
     ssh_command: Optional[str] = None
     user_id: int
+    # Password fields from ApplicationConfig
+    root_password: Optional[str] = None
+    user_password: Optional[str] = None
+    ssh_user: Optional[str] = None
+
+
+class ExecCommandRequest(BaseModel):
+    """在容器中执行命令的请求"""
+    command: str = Field(..., min_length=1, description="要执行的命令")
+    timeout: int = Field(default=30, ge=1, le=300, description="命令执行超时时间（秒）")
+    working_dir: Optional[str] = Field(default=None, description="工作目录（可选）")
+
+
+class ExecCommandResponse(BaseModel):
+    """命令执行结果"""
+    success: bool = Field(..., description="命令是否执行成功")
+    output: str = Field(..., description="命令输出（stdout）")
+    error: Optional[str] = Field(default=None, description="错误输出（stderr）")
+    exit_code: int = Field(..., description="退出码")
+    message: Optional[str] = Field(default=None, description="附加消息")

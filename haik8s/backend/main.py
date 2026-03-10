@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import Config
 from db.database import init_db
 from auth.security import set_jwt_config
-from k8s.client import init_k8s_client
+from k8s_service.client import init_k8s_client
 
 # Import routers
 from auth.sso_router import router as sso_router

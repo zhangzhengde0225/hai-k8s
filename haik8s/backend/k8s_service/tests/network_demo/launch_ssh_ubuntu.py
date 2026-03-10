@@ -17,7 +17,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 import hepai as hai
 from kubernetes import client
 from config import Config
-from k8s.client import init_k8s_client, get_core_v1, ensure_namespace
+from k8s_service.client import init_k8s_client, get_core_v1, ensure_namespace
 from dataclasses import dataclass, field
 
 

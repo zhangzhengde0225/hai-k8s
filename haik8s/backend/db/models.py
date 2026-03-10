@@ -141,6 +141,11 @@ class ApplicationConfig(SQLModel, table=True):
     root_password: Optional[str] = None  # root用户密码，None表示启动时自动生成
     user_password: Optional[str] = None  # 同步用户密码，None表示与root密码相同
 
+    # 防火墙配置
+    enable_firewall: bool = Field(default=True)  # 是否启用防火墙（默认开启）
+    firewall_rules: Optional[str] = None  # JSON string for firewall rules list
+    firewall_default_policy: str = Field(default="DROP")  # 默认策略: DROP/ACCEPT
+
     # 状态
     status: ConfigStatus = Field(default=ConfigStatus.DRAFT)
     created_at: datetime = Field(default_factory=datetime.utcnow)

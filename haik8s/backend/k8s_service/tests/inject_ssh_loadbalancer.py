@@ -35,7 +35,7 @@ def create_ssh_loadbalancer_service(
     Raises:
         ApiException: If service creation fails
     """
-    from k8s.client import get_core_v1
+    from k8s_service.client import get_core_v1
 
     if service_name is None:
         service_name = f"{pod_name}-ssh-lb"
@@ -95,7 +95,7 @@ def get_loadbalancer_ip(
     Returns:
         Assigned external IP address, or None if timeout occurs
     """
-    from k8s.client import get_core_v1
+    from k8s_service.client import get_core_v1
 
     v1 = get_core_v1()
     start_time = time.time()
@@ -137,7 +137,7 @@ def delete_ssh_loadbalancer_service(
     Returns:
         True if deletion succeeded, False otherwise
     """
-    from k8s.client import get_core_v1
+    from k8s_service.client import get_core_v1
 
     v1 = get_core_v1()
 

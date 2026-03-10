@@ -14,17 +14,53 @@ from datetime import datetime
 
 from db.database import get_session
 from db.models import User, Container, Image, ContainerStatus, ApplicationConfig, ConfigStatus
-from k8s.pods import delete_pod, create_app_pod, get_pod_status
-from k8s.services import delete_service
+from k8s_service.pods import delete_pod, create_app_pod, get_pod_status
+from k8s_service.services import delete_service
 from auth.dependencies import get_current_user
 from config import Config
-from k8s.client import ensure_namespace
+from k8s_service.client import ensure_namespace
 from utils.k8s_names import sanitize_k8s_name, make_namespace
 from apps.openclaw.create_openclaw_pod import create_openclaw_pod
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/applications", tags=["Applications"])
+
+
+def generate_and_save_passwords(config: ApplicationConfig, session: Session) -> tuple[str, str]:
+    """
+    生成密码并保存到数据库（仅在密码为空时生成）
+
+    Args:
+        config: 应用配置对象
+        session: 数据库会话
+
+    Returns:
+        tuple[str, str]: (root_password, user_password)
+    """
+    password_updated = False
+
+    # 生成 root 密码（如果未设置）
+    if not config.root_password:
+        _alphabet = string.ascii_letters + string.digits
+        config.root_password = ''.join(secrets.choice(_alphabet) for _ in range(16))
+        password_updated = True
+        logger.info(f"Generated new root password for config_id={config.id}")
+
+    # 生成 user 密码（如果未设置，则与 root 密码相同）
+    if not config.user_password:
+        config.user_password = config.root_password
+        password_updated = True
+        logger.info(f"Set user password for config_id={config.id}")
+
+    # 保存到数据库
+    if password_updated:
+        session.add(config)
+        session.commit()
+        session.refresh(config)
+        logger.info(f"Passwords saved to database for config_id={config.id}")
+
+    return config.root_password, config.user_password
 
 # Application definitions
 APPLICATIONS = {
@@ -53,6 +89,14 @@ class VolumeMountConfig(BaseModel):
     mount_path: str
 
 
+class FirewallRuleConfig(BaseModel):
+    """防火墙规则配置"""
+    port: int | str
+    protocol: str = "tcp"
+    source: str = "0.0.0.0/0"
+    action: str = "allow"
+
+
 class SaveConfigRequest(BaseModel):
     """保存配置请求（创建或更新）"""
     image_id: int
@@ -71,6 +115,10 @@ class SaveConfigRequest(BaseModel):
     enable_sudo: bool = True
     root_password: Optional[str] = None  # None = 自动生成
     user_password: Optional[str] = None  # None = 与root密码相同
+    # Firewall configuration
+    enable_firewall: bool = True  # 默认启用防火墙
+    firewall_rules: Optional[list[FirewallRuleConfig]] = None
+    firewall_default_policy: str = "DROP"  # 默认策略
 
 
 class LaunchInstanceRequest(BaseModel):
@@ -153,7 +201,7 @@ async def list_applications(
         # Find endpoint from config bound_ip
         endpoint = None
         if user_config and user_config.bound_ip:
-            endpoint = f"ssh://{user_config.bound_ip}"
+            endpoint = f"http://{user_config.bound_ip}"
 
         # Build response
         app_data = {
@@ -199,6 +247,8 @@ async def list_applications(
                 'user_gid': user_config.user_gid,
                 'user_home_dir': user_config.user_home_dir,
                 'enable_sudo': user_config.enable_sudo,
+                'root_password': user_config.root_password,
+                'user_password': user_config.user_password,
             }
         else:
             app_data['config'] = None
@@ -263,12 +313,20 @@ async def get_application_instances(
         ssh_command = None
         ssh_user = None
         bound_ip = None
+        root_password = None
+        user_password = None
+
         if container.ssh_enabled and container.config_id:
             cfg = session.get(ApplicationConfig, container.config_id)
-            if cfg and cfg.bound_ip:
-                ssh_user = current_user.cluster_username or current_user.username if cfg.sync_user else "root"
-                ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {ssh_user}@{cfg.bound_ip}"
-                bound_ip = cfg.bound_ip
+            if cfg:
+                # Get passwords from config
+                root_password = cfg.root_password
+                user_password = cfg.user_password
+
+                if cfg.bound_ip:
+                    ssh_user = current_user.cluster_username or current_user.username if cfg.sync_user else "root"
+                    ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {ssh_user}@{cfg.bound_ip}"
+                    bound_ip = cfg.bound_ip
 
         instances.append({
             'id': container.id,
@@ -285,7 +343,7 @@ async def get_application_instances(
             'ssh_command': ssh_command,
             'ssh_user': ssh_user,
             'bound_ip': bound_ip,
-            'password': None,  # Password is only returned on launch, not stored in DB
+            'password': user_password if ssh_user and ssh_user != 'root' else root_password,  # Show appropriate password
             'created_at': container.created_at.isoformat() if container.created_at else None,
             'updated_at': container.updated_at.isoformat() if container.updated_at else None,
         })
@@ -413,6 +471,13 @@ async def save_application_config(
         existing_config.enable_sudo = req.enable_sudo
         existing_config.root_password = req.root_password or None
         existing_config.user_password = req.user_password or None
+        # Update firewall configuration
+        existing_config.enable_firewall = req.enable_firewall
+        if req.firewall_rules:
+            existing_config.firewall_rules = json.dumps([r.dict() for r in req.firewall_rules])
+        else:
+            existing_config.firewall_rules = None
+        existing_config.firewall_default_policy = req.firewall_default_policy
         existing_config.status = ConfigStatus.VALIDATED
         existing_config.updated_at = datetime.utcnow()
 
@@ -429,6 +494,11 @@ async def save_application_config(
         volume_mounts_json = None
         if req.volume_mounts:
             volume_mounts_json = json.dumps([m.dict() for m in req.volume_mounts])
+
+        # Prepare firewall_rules JSON
+        firewall_rules_json = None
+        if req.firewall_rules:
+            firewall_rules_json = json.dumps([r.dict() for r in req.firewall_rules])
 
         config = ApplicationConfig(
             user_id=current_user.id,
@@ -449,6 +519,10 @@ async def save_application_config(
             enable_sudo=req.enable_sudo,
             root_password=req.root_password or None,
             user_password=req.user_password or None,
+            # Firewall configuration
+            enable_firewall=req.enable_firewall,
+            firewall_rules=firewall_rules_json,
+            firewall_default_policy=req.firewall_default_policy,
             status=ConfigStatus.VALIDATED,
         )
 
@@ -497,6 +571,8 @@ async def save_application_config(
         'user_gid': config.user_gid,
         'user_home_dir': config.user_home_dir,
         'enable_sudo': config.enable_sudo,
+        'root_password': config.root_password,
+        'user_password': config.user_password,
     }
 
 
@@ -565,6 +641,8 @@ async def get_application_config(
         'user_gid': config.user_gid,
         'user_home_dir': config.user_home_dir,
         'enable_sudo': config.enable_sudo,
+        'root_password': config.root_password,
+        'user_password': config.user_password,
     }
 
 
@@ -667,16 +745,29 @@ async def launch_instance_from_config(
             except (json.JSONDecodeError, TypeError):
                 vol_mounts = None
 
+        # Parse firewall_rules from config
+        firewall_rules_list = None
+        if config.firewall_rules:
+            try:
+                firewall_rules_list = json.loads(config.firewall_rules)
+            except (json.JSONDecodeError, TypeError):
+                firewall_rules_list = None
+
+        # If firewall is enabled but no rules provided, add default SSH rule
+        if config.enable_firewall and not firewall_rules_list:
+            firewall_rules_list = [
+                {"port": 22, "protocol": "tcp", "source": "0.0.0.0/0", "action": "allow"}
+            ]
+            logger.info(f"No firewall rules provided, using default SSH rule for pod {pod_name}")
+
         # Determine macvlan settings
         macvlan_network = None
         if config.bound_ip:
             macvlan_network = Config.MACVLAN_NETWORK_NAME
 
-        # Resolve passwords (generate if not set)
-        _alphabet = string.ascii_letters + string.digits
-        actual_root_password = config.root_password or ''.join(secrets.choice(_alphabet) for _ in range(16))
-        actual_user_password = config.user_password or actual_root_password
-        print(f"Launching instance with root password: {actual_root_password} and user password: {actual_user_password}")
+        # 生成密码并保存到数据库（第一次生成时会写入数据库）
+        actual_root_password, actual_user_password = generate_and_save_passwords(config, session)
+        print(f"Launching instance for user: {current_user.username} with root password: {actual_root_password} and user password: {actual_user_password}")
 
         # Create K8s resources
         try:
@@ -731,6 +822,10 @@ async def launch_instance_from_config(
                     macvlan_gateway=Config.MACVLAN_GATEWAY,
                     macvlan_subnet=Config.MACVLAN_SUBNET,
                     ssh_enabled=config.ssh_enabled,
+                    # Firewall configuration
+                    enable_firewall=config.enable_firewall,
+                    firewall_rules=firewall_rules_list,
+                    firewall_default_policy=config.firewall_default_policy,
                 )
             else:
                 # Use generic pod creation for other apps
@@ -854,3 +949,226 @@ async def stop_application_instances(
 
     session.commit()
     return {'message': f'删除了 {deleted} 个实例', 'deleted': deleted}
+
+
+# ==================== OpenClaw Configuration API ====================
+
+
+class UpdateOpenClawConfigRequest(BaseModel):
+    """Update OpenClaw configuration request"""
+    instance_id: int
+    models: Optional[dict] = None
+    channels: Optional[dict] = None
+
+
+@router.get("/{app_id}/openclaw-config")
+async def get_openclaw_config(
+    app_id: str,
+    instance_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Read OpenClaw instance configuration file (~/.openclaw/openclaw.json)
+
+    Returns:
+        {
+            "models": { "providers": {...} },
+            "channels": {...},
+            "agents": { "defaults": {...} },
+            "gateway": {...}
+        }
+    """
+    # Verify instance ownership
+    container = session.get(Container, instance_id)
+    if not container or container.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    if container.application_id != app_id:
+        raise HTTPException(status_code=400, detail="Container does not belong to this application")
+
+    if container.status != ContainerStatus.RUNNING:
+        raise HTTPException(status_code=400, detail="Container is not running")
+
+    # Read configuration file
+    try:
+        from kubernetes import client as k8s_client
+        from kubernetes.stream import stream
+
+        v1 = k8s_client.CoreV1Api()
+        namespace = container.k8s_namespace
+        pod_name = container.k8s_pod_name
+
+        # Execute command to check if config file exists and read it
+        config_path = "~/.openclaw/openclaw.json"
+        # Use 'test -f' to check if file exists, then cat if it does
+        exec_command = ['bash', '-c', f'if [ -f {config_path} ]; then cat {config_path}; else echo "FILE_NOT_FOUND"; fi']
+
+        resp = stream(
+            v1.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            command=exec_command,
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+            _preload_content=False
+        )
+
+        config_content = ""
+        stderr_content = ""
+        while resp.is_open():
+            resp.update(timeout=1)
+            if resp.peek_stdout():
+                config_content += resp.read_stdout()
+            if resp.peek_stderr():
+                stderr_content += resp.read_stderr()
+        resp.close()
+
+        # Check if file doesn't exist
+        if config_content.strip() == "FILE_NOT_FOUND":
+            logger.info(f"OpenClaw config file not found for container {instance_id}, returning empty config")
+            # Return empty config structure
+            return {
+                "models": {"providers": {}},
+                "channels": {},
+                "agents": {"defaults": {"model": {"primary": ""}, "models": {}}},
+                "gateway": {},
+                "file_exists": False,
+            }
+
+        # Parse JSON
+        if not config_content.strip():
+            # Empty file or no output
+            return {
+                "models": {"providers": {}},
+                "channels": {},
+                "agents": {"defaults": {"model": {"primary": ""}, "models": {}}},
+                "gateway": {},
+                "file_exists": False,
+            }
+
+        config_json = json.loads(config_content)
+
+        return {
+            "models": config_json.get("models", {}),
+            "channels": config_json.get("channels", {}),
+            "agents": config_json.get("agents", {}),
+            "gateway": config_json.get("gateway", {}),
+            "file_exists": True,
+        }
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse OpenClaw config for container {instance_id}: {str(e)}")
+        logger.error(f"Config content: {config_content[:500]}")
+        raise HTTPException(
+            status_code=500,
+            detail="配置文件格式错误，请检查JSON语法是否正确"
+        )
+    except Exception as e:
+        logger.error(f"Error reading OpenClaw config for container {instance_id}: {str(e)}")
+        if stderr_content:
+            logger.error(f"Stderr: {stderr_content}")
+        raise HTTPException(status_code=500, detail=f"读取配置失败: {str(e)}")
+
+
+@router.put("/{app_id}/openclaw-config")
+async def update_openclaw_config(
+    app_id: str,
+    request: UpdateOpenClawConfigRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Update OpenClaw instance configuration file
+
+    Only updates the provided sections (models or channels), keeps other config unchanged
+    """
+    # Verify instance ownership
+    container = session.get(Container, request.instance_id)
+    if not container or container.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    if container.application_id != app_id:
+        raise HTTPException(status_code=400, detail="Container does not belong to this application")
+
+    if container.status != ContainerStatus.RUNNING:
+        raise HTTPException(status_code=400, detail="Container is not running")
+
+    # Read existing configuration first
+    try:
+        from kubernetes import client as k8s_client
+        from kubernetes.stream import stream
+
+        v1 = k8s_client.CoreV1Api()
+        namespace = container.k8s_namespace
+        pod_name = container.k8s_pod_name
+
+        # Read current config
+        config_path = "~/.openclaw/openclaw.json"
+        exec_command = ['bash', '-c', f'cat {config_path}']
+
+        resp = stream(
+            v1.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            command=exec_command,
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+            _preload_content=False
+        )
+
+        config_content = ""
+        while resp.is_open():
+            resp.update(timeout=1)
+            if resp.peek_stdout():
+                config_content += resp.read_stdout()
+        resp.close()
+
+        config_json = json.loads(config_content)
+
+        # Merge updates
+        if request.models is not None:
+            config_json["models"] = request.models
+        if request.channels is not None:
+            config_json["channels"] = request.channels
+
+        # Write back configuration file
+        new_config = json.dumps(config_json, indent=2)
+
+        # Escape single quotes for bash heredoc
+        new_config_escaped = new_config.replace("'", "'\"'\"'")
+
+        # Use heredoc to write file
+        write_command = [
+            'bash', '-c',
+            f"cat > {config_path} <<'EOF'\n{new_config}\nEOF"
+        ]
+
+        resp = stream(
+            v1.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            command=write_command,
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+            _preload_content=False
+        )
+
+        # Wait for command to complete
+        while resp.is_open():
+            resp.update(timeout=1)
+        resp.close()
+
+        return {"message": "Configuration updated successfully"}
+
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse OpenClaw config file")
+    except Exception as e:
+        logger.error(f"Error updating OpenClaw config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update config: {str(e)}")

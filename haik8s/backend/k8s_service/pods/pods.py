@@ -5,7 +5,7 @@ import json
 from typing import Optional
 from kubernetes import client
 from kubernetes.client.rest import ApiException
-from .client import get_core_v1
+from ..client import get_core_v1
 
 
 def create_app_pod(

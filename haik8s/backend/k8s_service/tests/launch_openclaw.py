@@ -20,8 +20,8 @@ HERE = Path(__file__).parent
 import hepai as hai
 from kubernetes import client
 from config import Config
-from k8s.client import init_k8s_client, get_core_v1, ensure_namespace
-from k8s.pods import get_pod_status
+from k8s_service.client import init_k8s_client, get_core_v1, ensure_namespace
+from k8s_service.pods import get_pod_status
 
 from apps.openclaw.create_openclaw_pod import create_openclaw_pod
 
