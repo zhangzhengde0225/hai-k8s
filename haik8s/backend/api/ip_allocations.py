@@ -6,16 +6,16 @@ from sqlmodel import Session, select
 from datetime import datetime
 
 from db.database import get_session
-from db.models import User, IPAllocation
+from db.models import User, IPAllocation, Container, ApplicationConfig, ContainerStatus
 from auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/ip-allocations", tags=["IP Allocations"])
 
 # IP地址范围配置
-IP_RANGE_START = "10.5.6.200"
-IP_RANGE_END = "10.5.6.254"
-IP_PREFIX = "10.5.6."
-IP_START = 200
+IP_RANGE_START = "10.5.8.11"
+IP_RANGE_END = "10.5.8.254"
+IP_PREFIX = "10.5.8."
+IP_START = 15
 IP_END = 254
 
 
@@ -83,9 +83,6 @@ async def allocate_ip(
     if existing_ip:
         raise HTTPException(status_code=400, detail=f"用户已有IP地址: {existing_ip.ip_address}")
 
-    # 获取下一个可用IP
-    ip_address = get_next_available_ip(session)
-
     # 检查是否存在历史释放记录（unique constraint 限制只能有一行）
     existing_released = session.exec(
         select(IPAllocation).where(
@@ -94,12 +91,35 @@ async def allocate_ip(
         )
     ).first()
 
+    # 获取下一个可用IP（排除当前用户已有的历史记录）
+    ip_address = get_next_available_ip(session)
+
     if existing_released:
-        # 复用已有行，重新激活
+        # 复用已释放的记录，分配新的IP
+        # 因为释放时IP已被清空（改为released_xxx格式），所以直接分配新IP
+
+        # 检查新IP是否被占用（并发安全检查）
+        conflicting_ip = session.exec(
+            select(IPAllocation).where(
+                IPAllocation.ip_address == ip_address,
+                IPAllocation.id != existing_released.id
+            )
+        ).first()
+
+        if conflicting_ip:
+            # 如果发生并发冲突，重新获取一个IP
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=f"IP地址 {ip_address} 已被其他用户占用，请重试"
+            )
+
+        # 更新IP地址并重新激活
         existing_released.ip_address = ip_address
         existing_released.is_active = True
         existing_released.allocated_at = datetime.utcnow()
         existing_released.released_at = None
+
         session.add(existing_released)
         session.commit()
         session.refresh(existing_released)
@@ -117,9 +137,20 @@ async def allocate_ip(
         allocated_at=datetime.utcnow(),
     )
 
-    session.add(ip_allocation)
-    session.commit()
-    session.refresh(ip_allocation)
+    try:
+        session.add(ip_allocation)
+        session.commit()
+        session.refresh(ip_allocation)
+    except Exception as e:
+        session.rollback()
+        # 检查是否为IP地址冲突
+        if "ip_address" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(
+                status_code=409,
+                detail=f"IP地址 {ip_address} 已被其他用户占用，请重试"
+            )
+        # 其他类型的错误
+        raise HTTPException(status_code=500, detail=f"分配IP失败: {str(e)}")
 
     return {
         "message": "IP地址分配成功",
@@ -144,16 +175,50 @@ async def release_ip(
     if not ip_allocation:
         raise HTTPException(status_code=404, detail="用户没有已分配的IP")
 
-    # 标记为已释放
+    # 保存IP地址用于返回
+    released_ip = ip_allocation.ip_address
+
+    # 检查是否有正在运行或创建中的容器使用该IP
+    running_containers = session.exec(
+        select(Container).where(
+            Container.user_id == current_user.id,
+            Container.status.in_([ContainerStatus.CREATING, ContainerStatus.RUNNING])
+        )
+    ).all()
+
+    # 查找使用该IP的正在运行的容器
+    active_instances = []
+    for container in running_containers:
+        if container.config_id:
+            config = session.get(ApplicationConfig, container.config_id)
+            if config and config.bound_ip == released_ip:
+                active_instances.append({
+                    'container_name': container.name,
+                    'app_id': config.application_id
+                })
+
+    # 如果有正在运行的容器使用该IP，禁止释放
+    if active_instances:
+        instances_info = ', '.join(
+            f"{inst['container_name']}({inst['app_id']})" for inst in active_instances
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"无法释放IP地址：该IP正在被以下实例使用：{instances_info}。请先停止相关实例后再释放IP。"
+        )
+
+    # 标记为已释放，并清空IP地址以释放unique约束
+    # 这样其他用户可以重新使用这个IP
     ip_allocation.is_active = False
     ip_allocation.released_at = datetime.utcnow()
+    ip_allocation.ip_address = f"released_{current_user.id}_{datetime.utcnow().timestamp()}"  # 释放unique约束
 
     session.add(ip_allocation)
     session.commit()
 
     return {
         "message": "IP地址已释放",
-        "ip_address": ip_allocation.ip_address,
+        "ip_address": released_ip,
     }
 
 

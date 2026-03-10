@@ -227,12 +227,20 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
         // For new configs, default useIndependentIp=true, auto-bind if IP available
         if (res.data.has_ip && !application.config) {
           setBoundIp(res.data.ip_address);
+          setUseIndependentIp(true);
         }
       })
       .catch(err => {
         console.error('Failed to fetch IP allocation:', err);
       });
   }, [application.config]);
+
+  // Update boundIp when IP allocation changes and useIndependentIp is enabled
+  useEffect(() => {
+    if (ipAllocation?.has_ip && useIndependentIp) {
+      setBoundIp(ipAllocation.ip_address);
+    }
+  }, [ipAllocation?.ip_address, useIndependentIp]);
 
   const getComputedHomePath = () => {
     let u = clusterUsername || user?.username || 'user';

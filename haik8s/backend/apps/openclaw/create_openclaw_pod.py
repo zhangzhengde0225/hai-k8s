@@ -9,6 +9,7 @@ Author: Zhengde ZHANG
 """
 import sys
 from pathlib import Path
+import logging
 
 # Add backend to path
 # BACKEND_DIR = Path(__file__).parent.parent.parent
@@ -43,8 +44,8 @@ def create_openclaw_pod(
     enable_network_mounts: bool = False,
     macvlan_network: str = None,
     macvlan_ip: str = None,
-    macvlan_gateway: str = "10.5.6.1",
-    macvlan_subnet: str = "10.5.6.0/24",
+    macvlan_gateway: str = "10.5.8.1",
+    macvlan_subnet: str = "10.5.8.0/24",
     ssh_enabled: bool = True,
 ) -> client.V1Pod:
     """
@@ -70,8 +71,8 @@ def create_openclaw_pod(
         enable_network_mounts: Enable macvlan network
         macvlan_network: NetworkAttachmentDefinition name
         macvlan_ip: Specific IP for macvlan
-        macvlan_gateway: Gateway IP for macvlan (default: 10.5.6.1)
-        macvlan_subnet: Subnet for macvlan (default: 10.5.6.0/24)
+        macvlan_gateway: Gateway IP for macvlan (default: 10.5.8.1)
+        macvlan_subnet: Subnet for macvlan (default: 10.5.8.0/24)
         ssh_enabled: Enable SSH service
     """
     v1 = get_core_v1()
@@ -148,13 +149,23 @@ def create_openclaw_pod(
     startup_commands.append("echo 'Network interfaces:'")
     startup_commands.append("ip addr show")
 
+    startup_commands.append(f"echo ''")
+    startup_commands.append(f"echo '---------------------'")
+    startup_commands.append(f"echo 'user info:'")
+    startup_commands.append(f"echo 'root:{root_password}'")
+    startup_commands.append(f"echo '{custom_user}:{root_password}'")
+    startup_commands.append(f"echo '---------------------'")
+    startup_commands.append(f"echo ' '")
+
     # Configure macvlan routing if enabled
     if enable_network_mounts and macvlan_ip:
-        startup_commands.append('echo "100 net1_table" >> /etc/iproute2/rt_tables')
-        startup_commands.append(f'ip route add default via {macvlan_gateway} dev net1 table net1_table')
-        startup_commands.append(f'ip route add {macvlan_subnet} dev net1 src {macvlan_ip} table net1_table')
-        startup_commands.append(f'ip rule add from {macvlan_ip} table net1_table')
+        logging.info(f"Configuring macvlan routing inside the container: {macvlan_gateway}, {macvlan_subnet}, {macvlan_ip}")
+        startup_commands.append('grep -q "net1_table" /etc/iproute2/rt_tables || echo "100 net1_table" >> /etc/iproute2/rt_tables')
+        startup_commands.append(f'ip route add default via {macvlan_gateway} dev net1 table net1_table 2>/dev/null || true')
+        startup_commands.append(f'ip route add {macvlan_subnet} dev net1 src {macvlan_ip} table net1_table 2>/dev/null || true')
+        startup_commands.append(f'ip rule add from {macvlan_ip} table net1_table 2>/dev/null || true')
 
+    
     # Setup SSH
     if ssh_enabled:
         startup_commands.append("mkdir -p /var/run/sshd")
@@ -167,6 +178,8 @@ def create_openclaw_pod(
         # Start SSH server
         startup_commands.append("echo 'Starting SSH server...'")
         startup_commands.append("/usr/sbin/sshd -D")
+
+
 
     command_script = " && \\\n".join(startup_commands)
     command = ["/bin/bash", "-c", command_script]
@@ -194,7 +207,7 @@ def create_openclaw_pod(
                         name=volume_name,
                         host_path=client.V1HostPathVolumeSource(
                             path=host_path,
-                            type="Directory"
+                            type="DirectoryOrCreate"
                         ),
                     )
                 )

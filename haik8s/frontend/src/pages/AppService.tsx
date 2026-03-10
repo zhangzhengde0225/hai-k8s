@@ -97,8 +97,20 @@ export default function AppService() {
   const handleLaunchInstance = async (app: Application) => {
     setActionLoading(`launch-${app.id}`);
     try {
-      await client.post(`/applications/${app.id}/launch`, { count: 1 });
+      const response = await client.post(`/applications/${app.id}/launch`, { count: 1 });
       toast.success(t('instanceLaunched') || '实例已启动');
+
+      // Display instance information including password
+      if (response.data.instances && response.data.instances.length > 0) {
+        const instance = response.data.instances[0];
+        if (instance.ssh_user && instance.password) {
+          toast.success(
+            `用户名: ${instance.ssh_user}, 密码: ${instance.password}`,
+            { duration: 8000 }
+          );
+        }
+      }
+
       await loadApplications();
       // 刷新用户信息以更新资源使用量
       await refreshUserInfo();
@@ -184,11 +196,11 @@ export default function AppService() {
       </div>
 
       {/* Applications Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+      <div className="flex flex-wrap gap-4 md:gap-6">
         {applications.map((app) => (
           <div
             key={app.id}
-            className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg shadow border border-gray-200 dark:border-slate-700/50 hover:shadow-lg dark:hover:border-blue-500/50 dark:hover:shadow-blue-500/20 transition-all"
+            className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg shadow border border-gray-200 dark:border-slate-700/50 hover:shadow-lg dark:hover:border-blue-500/50 dark:hover:shadow-blue-500/20 transition-all w-full sm:w-auto sm:min-w-[380px] sm:max-w-[480px]"
           >
             <div className="p-4 md:p-6">
               {/* App Header */}

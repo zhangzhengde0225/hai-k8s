@@ -261,11 +261,14 @@ async def get_application_instances(
             k8s_status = get_pod_status(container.k8s_namespace, container.k8s_pod_name)
 
         ssh_command = None
+        ssh_user = None
+        bound_ip = None
         if container.ssh_enabled and container.config_id:
             cfg = session.get(ApplicationConfig, container.config_id)
             if cfg and cfg.bound_ip:
                 ssh_user = current_user.cluster_username or current_user.username if cfg.sync_user else "root"
                 ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {ssh_user}@{cfg.bound_ip}"
+                bound_ip = cfg.bound_ip
 
         instances.append({
             'id': container.id,
@@ -280,6 +283,9 @@ async def get_application_instances(
             'ssh_enabled': container.ssh_enabled,
             'ssh_node_port': container.ssh_node_port,
             'ssh_command': ssh_command,
+            'ssh_user': ssh_user,
+            'bound_ip': bound_ip,
+            'password': None,  # Password is only returned on launch, not stored in DB
             'created_at': container.created_at.isoformat() if container.created_at else None,
             'updated_at': container.updated_at.isoformat() if container.updated_at else None,
         })
@@ -414,6 +420,9 @@ async def save_application_config(
         session.commit()
         session.refresh(existing_config)
         config = existing_config
+        import logging
+        logging.info(f"Updated existing config for user {current_user.username} and app {config}")
+        print(f"Updated existing config for user {current_user.username} and app {config}")
     else:
         # 创建新配置
         # Prepare volume_mounts JSON
@@ -688,6 +697,13 @@ async def launch_instance_from_config(
 
             # Call app-specific pod creation functions
             if app_id == 'openclaw':
+                import logging
+                logging.info(f"Creating OpenClaw pod with name {pod_name} in namespace {namespace} using image {image.registry_url}")
+                logging.info(f"macvlan config: {macvlan_network}, {config.bound_ip}, {Config.MACVLAN_GATEWAY}, {Config.MACVLAN_SUBNET}")
+                if config.bound_ip == "10.5.6.202":
+                    logging.warning(f"Attempting to bind to reserved IP: {config}")
+                    raise HTTPException(status_code=400, detail="IP地址 ")
+
                 # Use OpenClaw-specific pod creation
                 create_openclaw_pod(
                     namespace=namespace,
@@ -765,6 +781,10 @@ async def launch_instance_from_config(
             ssh_user = current_user.cluster_username or current_user.username if config.sync_user else "root"
             ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {ssh_user}@{config.bound_ip}"
 
+        # Determine which username and password to show
+        ssh_user = current_user.cluster_username or current_user.username if config.sync_user else "root"
+        display_password = actual_user_password if config.sync_user else actual_root_password
+
         created_instances.append({
             'id': container.id,
             'name': container.name,
@@ -775,6 +795,8 @@ async def launch_instance_from_config(
             'ssh_node_port': node_port,
             'ssh_command': ssh_command,
             'bound_ip': config.bound_ip,
+            'ssh_user': ssh_user,
+            'password': display_password,
         })
 
     session.commit()

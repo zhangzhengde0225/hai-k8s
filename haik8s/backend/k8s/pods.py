@@ -26,8 +26,8 @@ def create_app_pod(
     volume_mounts: Optional[list[dict]] = None,
     bound_ip: Optional[str] = None,
     macvlan_network: Optional[str] = None,
-    macvlan_gateway: str = "10.5.6.1",
-    macvlan_subnet: str = "10.5.6.0/24",
+    macvlan_gateway: str = "10.5.8.1",
+    macvlan_subnet: str = "10.5.8.0/24",
     ssh_enabled: bool = True,
 ) -> client.V1Pod:
     """

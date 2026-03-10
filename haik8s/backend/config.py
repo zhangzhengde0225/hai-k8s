@@ -42,9 +42,9 @@ class Config:
 
     # Pod defaults
     DEFAULT_ROOT_PASSWORD: str = os.getenv("DEFAULT_ROOT_PASSWORD", "haik8s123")
-    MACVLAN_NETWORK_NAME: str = os.getenv("MACVLAN_NETWORK_NAME", "macvlan-conf-same-subnet")
-    MACVLAN_GATEWAY: str = os.getenv("MACVLAN_GATEWAY", "10.5.6.1")
-    MACVLAN_SUBNET: str = os.getenv("MACVLAN_SUBNET", "10.5.6.0/24")
+    MACVLAN_NETWORK_NAME: str = os.getenv("MACVLAN_NETWORK_NAME", "macvlan-conf")
+    MACVLAN_GATEWAY: str = os.getenv("MACVLAN_GATEWAY", "10.5.8.1")
+    MACVLAN_SUBNET: str = os.getenv("MACVLAN_SUBNET", "10.5.8.0/24")
 
     # HepAI
     HEPAI_SUBAPP_ADMIN_KEY: str = os.getenv("HEPAI_SUBAPP_ADMIN_KEY", "")

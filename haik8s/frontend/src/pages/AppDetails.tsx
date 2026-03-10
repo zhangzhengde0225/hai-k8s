@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, RefreshCw, Play, Square, Trash2, Copy, Check,
   Loader2, Terminal, FileText, LayoutGrid, ChevronDown, ChevronUp,
-  Cpu, MemoryStick, Zap, Wifi, Clock, Server,
+  Cpu, MemoryStick, Zap, Wifi, Clock, Server, Eye, EyeOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
@@ -26,6 +26,9 @@ interface AppInstance {
   ssh_enabled: boolean;
   ssh_node_port: number | null;
   ssh_command: string | null;
+  ssh_user: string | null;
+  password: string | null;
+  bound_ip: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +87,7 @@ export default function AppDetails() {
   const [logs, setLogs] = useState('');
   const [events, setEvents] = useState<PodEvent[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
 
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -453,6 +457,44 @@ export default function AppDetails() {
                             {/* SSH connection */}
                             {inst.ssh_enabled && inst.ssh_command && (
                               <InfoSection title="SSH 连接">
+                                <InfoRow label="用户名" value={inst.ssh_user || '-'} />
+                                <InfoRow label="IP 地址" value={inst.bound_ip || '-'} />
+                                {inst.password ? (
+                                  <InfoRow
+                                    label="密码"
+                                    value={
+                                      <div className="flex items-center gap-2">
+                                        <code className="text-cyan-300">
+                                          {showPasswords[inst.id] ? inst.password : '•••••••••'}
+                                        </code>
+                                        <button
+                                          onClick={() => setShowPasswords(prev => ({ ...prev, [inst.id]: !prev[inst.id] }))}
+                                          className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
+                                        >
+                                          {showPasswords[inst.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(inst.password!);
+                                            toast.success('密码已复制');
+                                          }}
+                                          className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
+                                        >
+                                          <Copy size={14} />
+                                        </button>
+                                      </div>
+                                    }
+                                  />
+                                ) : (
+                                  <InfoRow
+                                    label="密码"
+                                    value={
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500">密码仅在启动时显示，请查看配置页面</span>
+                                      </div>
+                                    }
+                                  />
+                                )}
                                 <InfoRow label="端口" value="22" />
                                 <div className="mt-2">
                                   <p className="text-xs text-slate-400 mb-1.5">连接命令</p>

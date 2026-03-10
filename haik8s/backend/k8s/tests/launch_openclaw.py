@@ -293,8 +293,8 @@ def launch_openclaw(
     enable_network_mounts: bool = False,
     macvlan_network: str = None,
     macvlan_ip: str = None,
-    macvlan_gateway: str = "10.5.6.1",
-    macvlan_subnet: str = "10.5.6.0/24",
+    macvlan_gateway: str = "10.5.8.1",
+    macvlan_subnet: str = "10.5.8.0/24",
     ssh_enabled: bool = True,
 ):
     """
@@ -435,12 +435,12 @@ def default_volume_mounts():
     """Default volume mounts for OpenClaw"""
     return [
         {
-            "host_path": "/aifs/user/home/zdzhang", 
-            "mount_path": "/aifs/user/home/zdzhang",
+            "host_path": "/aifs/user/home/zhangyiyu", 
+            "mount_path": "/aifs/user/home/zhangyiyu",
         },
         {
-            "host_path": "/aifs/user/data/zdzhang",  
-            "mount_path": "/aifs/user/data/zdzhang",
+            "host_path": "/aifs/user/data/zhangyiyu",  
+            "mount_path": "/aifs/user/data/zhangyiyu",
         },
     ]
 
@@ -448,8 +448,8 @@ def default_volume_mounts():
 @dataclass
 class Args:
     # Basic configuration
-    namespace: str = field(default="haik8s-zdzhang", metadata={"help": "K8s namespace"})
-    pod_name: str = field(default="hai-openclaw-0", metadata={"help": "Pod name"})
+    namespace: str = field(default="haik8s-zhangyiyu", metadata={"help": "K8s namespace"})
+    pod_name: str = field(default="hai-openclaw-1", metadata={"help": "Pod name"})
     image: str = field(default="dockerhub.ihep.ac.cn/hepai/hai-openclaw:latest", metadata={"help": "Image name from DB"})
     cpu: float = field(default=4.0, metadata={"help": "CPU cores"})
     memory: float = field(default=8.0, metadata={"help": "Memory in GB"})
@@ -458,10 +458,10 @@ class Args:
 
     # User configuration
     enable_user_mounts: bool = field(default=True, metadata={"help": "Enable custom user"})
-    custom_user: str = field(default="zdzhang", metadata={"help": "Custom username"})
-    custom_uid: int = field(default=21927, metadata={"help": "Custom UID"})
-    custom_gid: int = field(default=600, metadata={"help": "Custom GID"})
-    custom_home: str = field(default="/aifs/user/home/zdzhang", metadata={"help": "Custom home directory"})
+    custom_user: str = field(default="zhangyiyu", metadata={"help": "Custom username"})
+    custom_uid: int = field(default=11582, metadata={"help": "Custom UID"})
+    custom_gid: int = field(default=1004, metadata={"help": "Custom GID"})
+    custom_home: str = field(default="/aifs/user/home/zhangyiyu", metadata={"help": "Custom home directory"})
     enable_sudo: bool = field(default=True, metadata={"help": "Enable sudo"})
     custom_bashrc_file: str = field(default=str(HERE / "bashrc_openclaw.sh"), metadata={"help": "Bashrc file path"})
 
@@ -471,10 +471,10 @@ class Args:
 
     # Network configuration
     enable_network_mounts: bool = field(default=True, metadata={"help": "Enable macvlan network"})
-    macvlan_network: str = field(default="macvlan-conf-same-subnet", metadata={"help": "NetworkAttachmentDefinition name"})
-    macvlan_ip: str = field(default="10.5.6.200", metadata={"help": "Specific macvlan IP"})
-    macvlan_gateway: str = field(default="10.5.6.1", metadata={"help": "Gateway IP for macvlan"})
-    macvlan_subnet: str = field(default="10.5.6.0/24", metadata={"help": "Subnet for macvlan"})
+    macvlan_network: str = field(default="macvlan-conf", metadata={"help": "NetworkAttachmentDefinition name"})
+    macvlan_ip: str = field(default="10.5.8.12", metadata={"help": "Specific macvlan IP"})
+    macvlan_gateway: str = field(default="10.5.8.1", metadata={"help": "Gateway IP for macvlan"})
+    macvlan_subnet: str = field(default="10.5.8.0/24", metadata={"help": "Subnet for macvlan"})
     ssh_enabled: bool = field(default=True, metadata={"help": "Enable SSH"})
 
 

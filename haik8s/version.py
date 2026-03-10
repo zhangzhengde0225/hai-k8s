@@ -1,3 +1,3 @@
 
-__version__ = "0.0.4"
-__author__ = "Zhengde ZHANG"
+__version__ = "0.0.5"
+__author__ = "Zhengde ZHANG, Yiyu ZHANG"
