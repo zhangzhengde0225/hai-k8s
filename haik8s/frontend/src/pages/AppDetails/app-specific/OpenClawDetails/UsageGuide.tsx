@@ -70,13 +70,17 @@ export default function UsageGuide({ instance }: Props) {
       number: 2,
       title: '配置OpenClaw',
       tip: '初始化配置',
-      command: 'openclaw onboard',
+      command: instance.ssh_user
+        ? `su - ${instance.ssh_user} -c "openclaw onboard"`
+        : 'openclaw onboard',
     },
     {
       number: 3,
       title: '启动服务',
       tip: '启动OpenClaw服务',
-      command: 'openclaw gateway --port 18789 --bind lan',
+      command: instance.ssh_user
+        ? `su - ${instance.ssh_user} -c "openclaw gateway --port 18789 --bind lan &"`
+        : 'openclaw gateway --port 18789 --bind lan &',
     },
   ];
 

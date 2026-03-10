@@ -205,7 +205,11 @@ export default function BasicConfiguration({ instance }: Props) {
           containerId={instance.id}
           containerName={instance.name}
           onClose={() => setShowCommandExecutor(false)}
-          initialCommand="pkill -f 'openclaw gateway' && openclaw gateway --port 18789 --bind lan &"
+          initialCommand={
+            instance.ssh_user
+              ? `pkill -f 'openclaw gateway' && su - ${instance.ssh_user} -c "openclaw gateway --port 18789 --bind lan &"`
+              : `pkill -f 'openclaw gateway' && openclaw gateway --port 18789 --bind lan &`
+          }
         />
       )}
     </>
