@@ -41,7 +41,7 @@ export const TAB_CONFIGS: TabConfig[] = [
     label: '应用详情',
     i18nKey: 'appDetails',
     icon: <FileCode size={13} />,
-    enabled: () => true,
+    enabled: (_, status) => status === 'running',
   },
   {
     key: 'web-terminal',

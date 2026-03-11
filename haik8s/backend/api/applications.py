@@ -132,7 +132,61 @@ async def list_applications(
     session: Session = Depends(get_session),
 ):
     """
-    Get all applications with their status for current user
+    列出所有可用应用及用户配置状态
+
+    返回平台支持的所有应用（如OpenClaw）及当前用户的配置状态、运行实例数等信息。
+
+    ## 返回内容
+
+    每个应用包含：
+    - **id**: 应用标识符（如"openclaw"）
+    - **name**: 应用显示名称
+    - **version**: 应用版本
+    - **status**: 应用状态（unconfigured/configured/stopped/running）
+    - **is_configured**: 用户是否已保存配置
+    - **pods**: 当前运行中的Pod数量
+    - **total_instances**: 用户的总实例数（包括已停止）
+    - **endpoint**: 应用访问URL（如果可用）
+    - **config**: 用户配置详情（如果已配置）
+
+    ## 应用状态说明
+
+    - `unconfigured`: 用户未保存配置
+    - `configured`: 已保存配置但未启动实例
+    - `stopped`: 有实例但全部已停止
+    - `running`: 有运行中的实例
+
+    ## 使用示例
+
+    ```bash
+    curl -H "Authorization: Bearer <token>" \\
+         http://localhost:42900/api/applications
+    ```
+
+    ## 典型响应
+
+    ```json
+    [
+      {
+        "id": "openclaw",
+        "name": "OpenClaw",
+        "version": "1.0.0",
+        "status": "running",
+        "is_configured": true,
+        "pods": 1,
+        "replicas": 1,
+        "total_instances": 1,
+        "endpoint": "http://192.168.1.100",
+        "config": {
+          "image_id": 5,
+          "cpu_request": 4.0,
+          "memory_request": 8.0,
+          "gpu_request": 0,
+          "ssh_enabled": false
+        }
+      }
+    ]
+    ```
     """
     result = []
 
@@ -265,7 +319,66 @@ async def get_application_instances(
     session: Session = Depends(get_session),
 ):
     """
-    Get all instances (containers) for a specific application
+    获取指定应用的所有实例
+
+    返回当前用户在指定应用下创建的所有实例（容器），包括运行中和已停止的实例。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（如"openclaw"）
+
+    ## 返回内容
+
+    包含应用信息和实例列表：
+    - **application**: 应用基本信息（id, name, version）
+    - **instances**: 实例列表，每个实例包含：
+      - **id**: 容器ID
+      - **name**: 容器名称
+      - **status**: 容器状态（creating/running/stopped等）
+      - **k8s_status**: Kubernetes Pod状态
+      - **cpu_request, memory_request, gpu_request**: 资源配置
+      - **ssh_command**: SSH访问命令（如果启用）
+      - **bound_ip**: 绑定的IP地址
+      - **password**: 访问密码（root或user密码）
+    - **total**: 实例总数
+
+    ## 错误处理
+
+    - **404**: 应用不存在
+
+    ## 使用示例
+
+    ```bash
+    curl -H "Authorization: Bearer <token>" \\
+         http://localhost:42900/api/applications/openclaw/instances
+    ```
+
+    ## 典型响应
+
+    ```json
+    {
+      "application": {
+        "id": "openclaw",
+        "name": "OpenClaw",
+        "version": "1.0.0"
+      },
+      "instances": [
+        {
+          "id": 123,
+          "name": "openclaw-instance-1",
+          "status": "running",
+          "k8s_status": "Running",
+          "cpu_request": 4.0,
+          "memory_request": 8.0,
+          "gpu_request": 0,
+          "ssh_enabled": false,
+          "bound_ip": "192.168.1.100",
+          "password": "your_password_here"
+        }
+      ],
+      "total": 1
+    }
+    ```
     """
     if app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -435,7 +548,67 @@ async def save_application_config(
     session: Session = Depends(get_session),
 ):
     """
-    保存应用配置（创建或更新，每个用户每个应用只能有1个配置）
+    保存应用配置
+
+    创建或更新应用配置。每个用户每个应用只能有一个活动配置。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（如"openclaw"）
+
+    ## 请求体
+
+    - **image_id**: 镜像ID（必须是标记了对应应用标签的镜像）
+    - **cpu_request**: CPU核心数（0.1-32.0，不超过用户配额）
+    - **memory_request**: 内存GB（0.5-128.0，不超过用户配额）
+    - **gpu_request**: GPU数量（0-8，不超过用户配额）
+    - **ssh_enabled**: 是否启用SSH访问
+    - **storage_path**: 存储路径（可选）
+    - **bound_ip**: 绑定IP地址（可选）
+    - **volume_mounts**: 挂载卷配置（可选）
+    - **sync_user**: 是否同步用户（默认true）
+    - **user_uid, user_gid**: 用户UID/GID（可选）
+    - **user_home_dir**: 用户主目录（可选）
+    - **enable_sudo**: 是否启用sudo（默认false）
+    - **root_password, user_password**: 密码（可选，不设置会自动生成）
+
+    ## 校验规则
+
+    1. 镜像必须存在且is_active=True
+    2. 镜像标签必须包含应用ID（如"openclaw"）
+    3. GPU镜像要求gpu_request>0
+    4. 资源请求不超过用户配额
+
+    ## 返回内容
+
+    保存的配置对象，包括自动生成的密码（如果未设置）
+
+    ## 错误处理
+
+    - **400**: 配额超限、镜像不匹配、GPU要求不满足
+    - **404**: 应用或镜像不存在
+
+    ## 使用示例
+
+    ```bash
+    curl -X POST \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "image_id": 5,
+           "cpu_request": 4.0,
+           "memory_request": 8.0,
+           "gpu_request": 0,
+           "ssh_enabled": false
+         }' \\
+         http://localhost:42900/api/applications/openclaw/config
+    ```
+
+    ## 智能体注意事项
+
+    - 首次配置使用POST，更新配置使用PUT（或POST覆盖）
+    - 如果不指定密码，系统会自动生成16位随机密码
+    - 保存配置后需要调用`POST /{app_id}/launch`来启动实例
     """
     # 校验配置
     validate_config(req, current_user, app_id, session)
@@ -584,6 +757,45 @@ async def get_application_config(
 ):
     """
     获取应用配置
+
+    返回当前用户为指定应用保存的配置。每个用户每个应用只有一个活动配置。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（如"openclaw"）
+
+    ## 返回内容
+
+    配置对象，包括：
+    - **id**: 配置ID
+    - **application_id**: 应用ID
+    - **image_id, image_name**: 镜像信息
+    - **cpu_request, memory_request, gpu_request**: 资源配置
+    - **ssh_enabled**: SSH访问状态
+    - **storage_path**: 存储路径
+    - **volume_mounts**: 挂载卷配置
+    - **bound_ip**: 绑定IP
+    - **status**: 配置状态（validated/archived）
+    - **instance_count**: 使用此配置的实例数
+    - **sync_user**: 是否同步用户
+    - **root_password, user_password**: 访问密码
+
+    ## 错误处理
+
+    - **404**: 应用不存在或用户未保存配置
+
+    ## 使用示例
+
+    ```bash
+    curl -H "Authorization: Bearer <token>" \\
+         http://localhost:42900/api/applications/openclaw/config
+    ```
+
+    ## 智能体注意事项
+
+    - 在启动实例前检查是否已有配置
+    - 如果返回404，需要先调用`POST /{app_id}/config`保存配置
+    - 返回的密码用于SSH登录（如果启用）
     """
     if app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -654,7 +866,112 @@ async def launch_instance_from_config(
     session: Session = Depends(get_session),
 ):
     """
-    从配置启动实例
+    启动应用实例
+
+    根据已保存的配置创建并启动应用实例（如OpenClaw）。这是智能体启动服务的核心端点。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（如"openclaw"）
+
+    ## 请求体
+
+    - **count**: 启动实例数量（默认1，某些应用支持多实例）
+    - **instance_name**: 实例名称（可选，单实例时使用）
+
+    ## 前置条件
+
+    1. 用户必须已保存配置（通过`POST /{app_id}/config`）
+    2. 配置状态必须为validated
+    3. 用户有足够的资源配额（CPU/内存/GPU）
+    4. 镜像可用且is_active=True
+    5. 同一应用不能有其他运行中的实例
+
+    ## 处理流程
+
+    1. 验证应用ID和用户配置
+    2. 二次检查资源配额充足
+    3. 检查是否已有运行中的实例（每个应用限一个）
+    4. 生成root和user密码（如果未设置）
+    5. 创建Kubernetes Pod（可能包含MacVLAN网络配置）
+    6. 创建数据库Container记录
+    7. 返回容器详情（包括访问信息和密码）
+
+    ## 返回内容
+
+    容器详情列表（通常为1个），每个包含：
+    - **id**: 容器ID
+    - **name**: 容器名称
+    - **k8s_pod_name, k8s_namespace**: Kubernetes资源标识
+    - **status**: 初始状态（通常为"creating"）
+    - **bound_ip**: 绑定的IP地址（如果配置了）
+    - **ssh_command**: SSH访问命令（如果启用）
+    - **root_password, user_password**: 访问密码
+    - **created_at**: 创建时间
+
+    ## 错误处理
+
+    - **400**: 配额超限、配置未校验、已有运行中实例
+    - **404**: 应用不存在、配置不存在、镜像不可用
+    - **409**: Pod名称冲突（正在删除旧Pod）
+
+    ## 智能体使用示例
+
+    完整的OpenClaw启动流程：
+
+    ```python
+    # Step 1: 检查是否已有配置
+    response = requests.get(
+        "http://localhost:42900/api/applications/openclaw/config",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    if response.status_code == 404:
+        # Step 2: 创建配置
+        config_data = {
+            "image_id": 5,
+            "cpu_request": 4.0,
+            "memory_request": 8.0,
+            "gpu_request": 0,
+            "ssh_enabled": False
+        }
+        requests.post(
+            "http://localhost:42900/api/applications/openclaw/config",
+            headers={"Authorization": f"Bearer {token}"},
+            json=config_data
+        )
+
+    # Step 3: 启动实例
+    response = requests.post(
+        "http://localhost:42900/api/applications/openclaw/launch",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"count": 1}
+    )
+
+    instance = response.json()[0]
+    print(f"Instance created: {instance['name']}")
+    print(f"Access URL: http://{instance['bound_ip']}")
+    print(f"Password: {instance['user_password']}")
+
+    # Step 4: 等待Pod运行（轮询状态）
+    while True:
+        response = requests.get(
+            "http://localhost:42900/api/applications/openclaw/instances",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        instances = response.json()['instances']
+        if instances and instances[0]['k8s_status'] == 'Running':
+            print("Instance is ready!")
+            break
+        time.sleep(5)
+    ```
+
+    ## 注意事项
+
+    - 密码在启动时自动生成（如果配置中未设置）
+    - 同一应用只能有一个运行中的实例，需要先删除旧实例
+    - Pod创建是异步的，返回后状态为"creating"，需轮询状态直到"Running"
+    - 绑定IP需要在配置中预先设置bound_ip字段
     """
     if app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -908,7 +1225,52 @@ async def stop_application_instances(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """删除该应用所有运行中的实例（Pod + DB记录标记为DELETED）"""
+    """
+    停止应用的所有实例
+
+    删除当前用户在指定应用下的所有运行中和创建中的实例（Pod和Service），并将数据库记录标记为DELETED。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（如"openclaw"）
+
+    ## 处理流程
+
+    1. 查找应用对应的所有镜像
+    2. 查询用户所有运行中/创建中的容器
+    3. 删除每个容器的Kubernetes资源（Pod和Service）
+    4. 更新数据库状态为DELETED
+    5. 返回删除的实例数量
+
+    ## 返回内容
+
+    ```json
+    {
+      "message": "删除了 N 个实例",
+      "deleted": N
+    }
+    ```
+
+    ## 错误处理
+
+    - **404**: 应用不存在
+    - 即使某些资源删除失败，也会继续处理其他实例
+
+    ## 使用示例
+
+    ```bash
+    curl -X POST \\
+         -H "Authorization: Bearer <token>" \\
+         http://localhost:42900/api/applications/openclaw/stop
+    ```
+
+    ## 注意事项
+
+    - 此操作会立即删除所有运行中的实例
+    - Pod删除是异步的，实际终止需要几秒钟
+    - 数据库记录标记为DELETED但不会物理删除
+    - 停止后可以重新调用launch启动新实例
+    """
     if app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
 
@@ -969,15 +1331,44 @@ async def get_openclaw_config(
     session: Session = Depends(get_session),
 ):
     """
-    Read OpenClaw instance configuration file (~/.openclaw/openclaw.json)
+    读取OpenClaw实例配置文件
 
-    Returns:
-        {
-            "models": { "providers": {...} },
-            "channels": {...},
-            "agents": { "defaults": {...} },
-            "gateway": {...}
-        }
+    通过Kubernetes exec读取运行中OpenClaw实例的配置文件（~/.openclaw/openclaw.json）。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（通常为"openclaw"）
+
+    ## 查询参数
+
+    - **instance_id**: 容器ID（从`/api/applications/{app_id}/instances`获取）
+
+    ## 返回内容
+
+    OpenClaw配置JSON对象，包含：
+    - **models**: 模型提供商配置
+    - **channels**: 通道配置
+    - **agents**: 代理默认配置
+    - **gateway**: 网关配置
+
+    ## 错误处理
+
+    - **400**: 容器不属于此应用或未运行
+    - **404**: 容器不存在或不属于当前用户
+    - **500**: Kubernetes exec失败或配置文件不存在
+
+    ## 使用示例
+
+    ```bash
+    curl -H "Authorization: Bearer <token>" \\
+         "http://localhost:42900/api/applications/openclaw/openclaw-config?instance_id=123"
+    ```
+
+    ## 注意事项
+
+    - 容器必须处于Running状态
+    - 配置文件路径：`~/.openclaw/openclaw.json`
+    - 如果配置文件不存在，返回500错误
     """
     # Verify instance ownership
     container = session.get(Container, instance_id)
@@ -1081,9 +1472,66 @@ async def update_openclaw_config(
     session: Session = Depends(get_session),
 ):
     """
-    Update OpenClaw instance configuration file
+    更新OpenClaw实例配置文件
 
-    Only updates the provided sections (models or channels), keeps other config unchanged
+    通过Kubernetes exec更新运行中OpenClaw实例的配置文件。只更新提供的部分，其他配置保持不变。
+
+    ## 路径参数
+
+    - **app_id**: 应用标识符（通常为"openclaw"）
+
+    ## 请求体
+
+    - **instance_id**: 容器ID（必需）
+    - **models**: 模型配置（可选，如果提供会完全替换models部分）
+    - **channels**: 通道配置（可选，如果提供会完全替换channels部分）
+
+    ## 处理流程
+
+    1. 验证容器所有权和状态
+    2. 读取现有配置文件
+    3. 合并更新（只替换提供的sections）
+    4. 写回配置文件
+
+    ## 返回内容
+
+    ```json
+    {
+      "message": "Configuration updated successfully"
+    }
+    ```
+
+    ## 错误处理
+
+    - **400**: 容器不属于此应用或未运行
+    - **404**: 容器不存在或不属于当前用户
+    - **500**: Kubernetes exec失败、JSON解析错误、文件写入失败
+
+    ## 使用示例
+
+    ```bash
+    curl -X PUT \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "instance_id": 123,
+           "models": {
+             "providers": {
+               "anthropic": {
+                 "api_key": "your-api-key"
+               }
+             }
+           }
+         }' \\
+         http://localhost:42900/api/applications/openclaw/openclaw-config
+    ```
+
+    ## 注意事项
+
+    - 容器必须处于Running状态
+    - 只更新提供的sections（models或channels），其他部分保持不变
+    - 配置文件路径：`~/.openclaw/openclaw.json`
+    - 更新后OpenClaw服务可能需要重启以加载新配置
     """
     # Verify instance ownership
     container = session.get(Container, request.instance_id)

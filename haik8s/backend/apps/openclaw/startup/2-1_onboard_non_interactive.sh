@@ -1,0 +1,12 @@
+openclaw onboard \
+    --non-interactive \
+    --accept-risk \
+    --flow quickstart \
+    --mode local \
+    --gateway-bind lan \
+    --gateway-auth token \
+    --gateway-password $GATEWAY_PASSWORD \
+    --skip-channels \
+    --skip-skills \
+    --skip-health \
+    --install-daemon

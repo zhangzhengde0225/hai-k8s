@@ -1,0 +1,98 @@
+{
+
+"models": {
+    "mode": "merge",
+    "providers": {
+      "hepai": {
+        "baseUrl": "https://aiapi.ihep.ac.cn/apiv2",
+        "apiKey": "${HEPAI_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "aliyun/qwen3-max",
+            "name": "Qwen 3 Max (HepAI)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "deepseek-ai/deepseek-v3.2",
+            "name": "DeepSeek v3.2 (HepAI)",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 16384
+          },
+          {
+            "id": "hepai/deepseek-v3.2",
+            "name": "DeepSeek v3.2 (HepAI-Local)",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 32000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "hepai_anthropic": {
+        "baseUrl": "https://aiapi.ihep.ac.cn/apiv2/anthropic",
+        "apiKey": "${HEPAI_API_KEY}",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "anthropic/claude-haiku-4-5",
+            "name": "Claude Haiku 4.5 (HepAI)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "minimax/minimax-m2.5-highspeed",
+            "name": "MiniMax M2.5 Highspeed (HepAI)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+"agents": {
+    "defaults": {
+    "model": { 
+        "primary": "hepai/deepseek-ai/deepseek-v3.2",
+        "fallbacks": [
+          "hepai/hepai/deepseek-v3.2",
+          "hepai/deepseek-ai/deepseek-v3.2",
+          "hepai/aliyun/qwen3-max",
+          "hepai/anthropic/claude-haiku-4-5",
+          "hepai/minimax/minimax-m2.5-highspeed"
+        ]
+      },
+    "models": {
+        "hepai/hepai/deepseek-v3.2": {
+          "alias": "hepai/deepseek-v3.2"
+        },
+        "hepai/deepseek-v3.2": {
+          "alias": "deedeepseek-v3.2-hepai"
+        },
+        "aliyun/qwen3-max": {
+          "alias": "qwen3-max-hepai"
+        },
+        "anthropic/claude-haiku-4-5": {
+          "alias": "claude-haiku-4-5-hepai"
+        },
+        "minimax/minimax-m2.5-highspeed": {
+          "alias": "minimax-m2.5-highspeed-hepai"
+        }
+      }
+    }
+}
+}

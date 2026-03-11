@@ -1,0 +1,1 @@
+## 方法：在~/.opencalw/openclaw.json中的gateway字段下添加："controlUi": { "allowInsecureAuth": true}

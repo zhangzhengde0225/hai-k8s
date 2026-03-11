@@ -61,6 +61,7 @@ export default function AppDetails() {
   const [executorContainerName, setExecutorContainerName] = useState<string>('');
 
   const detailRef = useRef<HTMLDivElement>(null);
+  const prevStatusRef = useRef<string | null>(null);
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -108,6 +109,26 @@ export default function AppDetails() {
   useEffect(() => {
     loadInstances();
   }, [appId]);
+
+  // Auto-switch to app-details tab when container becomes running
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const currentInstance = instances.find((inst) => inst.id === selectedId);
+    if (!currentInstance) return;
+
+    const prevStatus = prevStatusRef.current;
+    const currentStatus = currentInstance.status;
+
+    // If status changed from non-running to running, switch to app-details tab
+    if (prevStatus && prevStatus !== 'running' && currentStatus === 'running') {
+      setActiveTab('app-details');
+      toast.success('容器已启动，已自动切换到应用详情');
+    }
+
+    // Update previous status
+    prevStatusRef.current = currentStatus;
+  }, [selectedId, instances]);
 
   // Auto-refresh when there are non-running instances
   useEffect(() => {
