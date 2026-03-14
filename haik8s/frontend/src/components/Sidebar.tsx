@@ -124,6 +124,11 @@ export default function Sidebar() {
           icon: <ImageIcon size={16} />,
         },
         {
+          label: t('applications'),
+          path: '/admin/applications',
+          icon: <AppWindow size={16} />,
+        },
+        {
           label: t('cluster'),
           path: '/admin/cluster',
           icon: <Server size={16} />,

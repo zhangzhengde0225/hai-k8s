@@ -9,19 +9,18 @@ import LoginPage from './auth/LoginPage';
 import CallbackPage from './auth/CallbackPage';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import Dashboard from './pages/Dashboard';
 import Overview from './pages/Overview';
-import AppService from './pages/AppService';
+import AppService from './pages/product/01-app-service';
 import Documentation from './pages/Documentation';
-import CreateContainer from './pages/CreateContainer';
-import ContainerDetail from './pages/ContainerDetail';
-import AdminUsers from './pages/AdminUsers';
-import AdminImages from './pages/AdminImages';
-import AdminCluster from './pages/AdminCluster';
-import AdminPods from './pages/AdminPods';
-import Profile from './pages/Profile';
-import ContactUs from './pages/ContactUs';
-import AppDetails from './pages/AppDetails';
+import AdminUsers from './pages/admin/01-users';
+import AdminImages from './pages/admin/02-images';
+import AdminCluster from './pages/admin/04-cluster';
+import AdminPods from './pages/admin/05-pods';
+import AdminApplications from './pages/admin/03-applications';
+import AdminApplicationDetail from './pages/admin/03-applications/Detail';
+import Profile from './pages/settings/01-profile';
+import ContactUs from './pages/settings/02-contact';
+import AppDetails from './pages/product/01-app-service/Details';
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
@@ -60,11 +59,6 @@ export default function App() {
           <Route path="/apps" element={<AppService />} />
           <Route path="/apps/:appId/details" element={<AppDetails />} />
 
-          {/* 产品中心 - 容器服务（隐藏，保留路由以防直接访问） */}
-          <Route path="/containers" element={<Dashboard />} />
-          <Route path="/containers/new" element={<CreateContainer />} />
-          <Route path="/containers/:id" element={<ContainerDetail />} />
-
           {/* 参考文档 */}
           <Route path="/docs" element={<Documentation />} />
 
@@ -102,6 +96,22 @@ export default function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminPods />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/applications"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminApplications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/applications/:appId/edit"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminApplicationDetail isEditing={true} />
               </ProtectedRoute>
             }
           />

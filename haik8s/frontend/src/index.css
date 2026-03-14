@@ -14,6 +14,14 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100svh; /* iOS Safari: 使用 small viewport height，不含浏览器地址栏 */
+}
+
+/* Safari gradient text fix: -webkit-text-fill-color 优先于 color: transparent */
+.dark .safari-gradient-text {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 

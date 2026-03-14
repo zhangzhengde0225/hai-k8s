@@ -29,6 +29,9 @@ interface Application {
   name: string;
   description: string;
   defaultImage?: string;
+  recommended_cpu?: number;
+  recommended_memory?: number;
+  recommended_gpu?: number;
 }
 
 interface AppConfigFormProps {
@@ -496,9 +499,9 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
             onClick={() => {
               const selectedImage = images.find(img => img.id === selectedImageId);
               const rec = selectedImage?.recommended_resources;
-              setCpu(String(rec?.cpu ?? user?.cpu_quota ?? 2));
-              setMemory(String(rec?.memory ?? user?.memory_quota ?? 4));
-              setGpu(String(rec?.gpu ?? 0));
+              setCpu(String(application.recommended_cpu ?? rec?.cpu ?? user?.cpu_quota ?? 2));
+              setMemory(String(application.recommended_memory ?? rec?.memory ?? user?.memory_quota ?? 4));
+              setGpu(String(application.recommended_gpu ?? rec?.gpu ?? 0));
               toast.success('已应用推荐配额');
             }}
             className="text-xs px-3 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 transition-colors"

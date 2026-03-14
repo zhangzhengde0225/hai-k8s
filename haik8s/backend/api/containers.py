@@ -2,6 +2,7 @@
 Container API endpoints
 """
 import asyncio
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
@@ -20,6 +21,8 @@ from auth.dependencies import get_current_user
 from schemas.container import CreateContainerRequest, ContainerResponse, ContainerDetailResponse, ExecCommandRequest, ExecCommandResponse
 from config import Config
 from k8s_service.client import ensure_namespace
+
+logger = logging.getLogger(__name__)
 from k8s_service.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_pod_events, get_pod_details
 from k8s_service.services import create_ssh_service, delete_service
 from utils.k8s_names import sanitize_k8s_name, make_namespace
@@ -480,6 +483,8 @@ async def execute_command_in_container(
     # 导入命令执行接口
     from k8s_service.pods.interface import execute_command_with_separate_streams
 
+    logger.info(f"[Exec] container_id={container_id}, user={current_user.username}, command={req.command!r}")
+   
     try:
         # 执行命令（获取真实退出码和分离的 stdout/stderr）
         result = execute_command_with_separate_streams(

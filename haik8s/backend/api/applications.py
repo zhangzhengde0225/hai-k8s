@@ -13,7 +13,7 @@ from typing import Optional
 from datetime import datetime
 
 from db.database import get_session
-from db.models import User, Container, Image, ContainerStatus, ApplicationConfig, ConfigStatus
+from db.models import User, Container, Image, ContainerStatus, ApplicationConfig, ConfigStatus, ApplicationDefinition
 from k8s_service.pods import delete_pod, create_app_pod, get_pod_status
 from k8s_service.services import delete_service
 from auth.dependencies import get_current_user
@@ -190,20 +190,26 @@ async def list_applications(
     """
     result = []
 
-    for app_id, app_config in APPLICATIONS.items():
+    # Get all visible application definitions from database
+    app_definitions = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.is_visible == True)
+    ).all()
+
+    for app_def in app_definitions:
+        app_id = app_def.app_id
+
         # Find all active images with matching tag
         all_images = session.exec(
             select(Image).where(Image.is_active == True)
         ).all()
 
         # Filter images by tag (tag matches app_id)
-        app_tag = app_config['id']  # 'openclaw' or 'opendrsai'
         images = []
         for img in all_images:
             if img.tags:
                 try:
                     tags = json.loads(img.tags)
-                    if app_tag in tags:
+                    if app_id in tags:
                         images.append(img)
                 except (json.JSONDecodeError, TypeError):
                     continue
@@ -260,15 +266,18 @@ async def list_applications(
         # Build response
         app_data = {
             'id': app_id,
-            'name': app_config['name'],
-            'version': app_config['version'],
+            'name': app_def.name,
+            'version': app_def.version,
             'status': status,
             'is_configured': has_config,
             'pods': running_count,
-            'replicas': app_config['default_replicas'],
+            'replicas': app_def.default_replicas,
             'total_instances': total_count,
             'endpoint': endpoint,
-            'defaultImage': app_config['image_prefix'],
+            'defaultImage': app_def.image_prefix,
+            'recommended_cpu': app_def.recommended_cpu,
+            'recommended_memory': app_def.recommended_memory,
+            'recommended_gpu': app_def.recommended_gpu,
         }
 
         # Add config info if exists
@@ -308,6 +317,127 @@ async def list_applications(
             app_data['config'] = None
 
         result.append(app_data)
+
+    # Fallback to hard-coded APPLICATIONS if database is empty (for backward compatibility)
+    if not result:
+        for app_id, app_config in APPLICATIONS.items():
+            # Find all active images with matching tag
+            all_images = session.exec(
+                select(Image).where(Image.is_active == True)
+            ).all()
+
+            # Filter images by tag (tag matches app_id)
+            app_tag = app_config['id']  # 'openclaw' or 'opendrsai'
+            images = []
+            for img in all_images:
+                if img.tags:
+                    try:
+                        tags = json.loads(img.tags)
+                        if app_tag in tags:
+                            images.append(img)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+            image_ids = [img.id for img in images]
+
+            # Get user's containers for this application
+            containers = session.exec(
+                select(Container).where(
+                    Container.user_id == current_user.id,
+                    Container.image_id.in_(image_ids),
+                    Container.status != ContainerStatus.DELETED
+                )
+            ).all()
+
+            # Count active instances (running or creating)
+            running_count = 0
+            active_count = 0
+            total_count = len(containers)
+
+            for container in containers:
+                if container.status in (ContainerStatus.RUNNING, ContainerStatus.CREATING):
+                    active_count += 1
+                    if container.k8s_pod_name and container.k8s_namespace:
+                        k8s_phase = get_pod_status(container.k8s_namespace, container.k8s_pod_name)
+                        if k8s_phase == "Running":
+                            running_count += 1
+
+            # Get user's configuration for this application
+            user_config = session.exec(
+                select(ApplicationConfig).where(
+                    ApplicationConfig.user_id == current_user.id,
+                    ApplicationConfig.application_id == app_id,
+                    ApplicationConfig.status != ConfigStatus.ARCHIVED
+                )
+            ).first()
+
+            # Determine application status
+            has_config = user_config is not None
+            if active_count > 0:
+                status = 'running'
+            elif total_count > 0:
+                status = 'stopped'
+            elif has_config:
+                status = 'configured'  # Has config but no instances
+            else:
+                status = 'unconfigured'
+
+            # Find endpoint from config bound_ip
+            endpoint = None
+            if user_config and user_config.bound_ip:
+                endpoint = f"http://{user_config.bound_ip}"
+
+            # Build response
+            app_data = {
+                'id': app_id,
+                'name': app_config['name'],
+                'version': app_config['version'],
+                'status': status,
+                'is_configured': has_config,
+                'pods': running_count,
+                'replicas': app_config['default_replicas'],
+                'total_instances': total_count,
+                'endpoint': endpoint,
+                'defaultImage': app_config['image_prefix'],
+            }
+
+            # Add config info if exists
+            if user_config:
+                config_image = session.get(Image, user_config.image_id)
+
+                # Parse volume_mounts from JSON
+                volume_mounts_list = None
+                if user_config.volume_mounts:
+                    try:
+                        volume_mounts_list = json.loads(user_config.volume_mounts)
+                    except (json.JSONDecodeError, TypeError):
+                        volume_mounts_list = None
+
+                app_data['config'] = {
+                    'id': user_config.id,
+                    'image_id': user_config.image_id,
+                    'image_name': config_image.name if config_image else None,
+                    'cpu_request': user_config.cpu_request,
+                    'memory_request': user_config.memory_request,
+                    'gpu_request': user_config.gpu_request,
+                    'ssh_enabled': user_config.ssh_enabled,
+                    'storage_path': user_config.storage_path,
+                    'volume_mounts': volume_mounts_list,
+                    'bound_ip': user_config.bound_ip,
+                    'status': user_config.status.value,
+                    # User sync configuration
+                    'sync_user': user_config.sync_user,
+                    'user_uid': user_config.user_uid,
+                    'user_gid': user_config.user_gid,
+                    'user_home_dir': user_config.user_home_dir,
+                    'enable_sudo': user_config.enable_sudo,
+                    'root_password': user_config.root_password,
+                    'user_password': user_config.user_password,
+                }
+            else:
+                app_data['config'] = None
+
+            result.append(app_data)
 
     return result
 
@@ -380,10 +510,24 @@ async def get_application_instances(
     }
     ```
     """
-    if app_id not in APPLICATIONS:
-        raise HTTPException(status_code=404, detail="Application not found")
+    # Check database first, then fall back to hard-coded applications
+    app_def = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
 
-    app_config = APPLICATIONS[app_id]
+    app_config = None
+    if app_def:
+        app_config = {
+            'id': app_def.app_id,
+            'name': app_def.name,
+            'version': app_def.version,
+            'image_prefix': app_def.image_prefix,
+            'default_replicas': app_def.default_replicas,
+        }
+    elif app_id not in APPLICATIONS:
+        raise HTTPException(status_code=404, detail="Application not found")
+    else:
+        app_config = APPLICATIONS[app_id]
 
     # Find all active images with matching tag
     all_images = session.exec(
@@ -391,7 +535,7 @@ async def get_application_instances(
     ).all()
 
     # Filter images by tag (tag matches app_id)
-    app_tag = app_config['id']  # 'openclaw' or 'opendrsai'
+    app_tag = app_id  # 'openclaw' or 'opendrsai'
     images = []
     for img in all_images:
         if img.tags:
@@ -461,11 +605,19 @@ async def get_application_instances(
             'updated_at': container.updated_at.isoformat() if container.updated_at else None,
         })
 
+    startup_scripts_config = None
+    if app_def and app_def.startup_scripts_config:
+        try:
+            startup_scripts_config = json.loads(app_def.startup_scripts_config)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return {
         'application': {
             'id': app_id,
             'name': app_config['name'],
             'version': app_config['version'],
+            'startup_scripts_config': startup_scripts_config,
         },
         'instances': instances,
         'total': len(instances),
@@ -797,7 +949,12 @@ async def get_application_config(
     - 如果返回404，需要先调用`POST /{app_id}/config`保存配置
     - 返回的密码用于SSH登录（如果启用）
     """
-    if app_id not in APPLICATIONS:
+    # Check database first, then fall back to hard-coded applications
+    app_def = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+
+    if not app_def and app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
 
     # 查询用户的配置
@@ -973,7 +1130,12 @@ async def launch_instance_from_config(
     - Pod创建是异步的，返回后状态为"creating"，需轮询状态直到"Running"
     - 绑定IP需要在配置中预先设置bound_ip字段
     """
-    if app_id not in APPLICATIONS:
+    # Check database first, then fall back to hard-coded applications
+    app_def = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+
+    if not app_def and app_id not in APPLICATIONS:
         raise HTTPException(status_code=404, detail="Application not found")
 
     # 查询配置
@@ -1271,13 +1433,28 @@ async def stop_application_instances(
     - 数据库记录标记为DELETED但不会物理删除
     - 停止后可以重新调用launch启动新实例
     """
-    if app_id not in APPLICATIONS:
-        raise HTTPException(status_code=404, detail="Application not found")
+    # Check database first, then fall back to hard-coded applications
+    app_def = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
 
-    app_cfg = APPLICATIONS[app_id]
+    app_cfg = None
+    if app_def:
+        app_cfg = {
+            'id': app_def.app_id,
+            'name': app_def.name,
+            'version': app_def.version,
+            'image_prefix': app_def.image_prefix,
+            'default_replicas': app_def.default_replicas,
+        }
+    elif app_id not in APPLICATIONS:
+        raise HTTPException(status_code=404, detail="Application not found")
+    else:
+        app_cfg = APPLICATIONS[app_id]
+
     all_images = session.exec(select(Image).where(Image.is_active == True)).all()
 
-    app_tag = app_cfg['id']
+    app_tag = app_id
     image_ids = []
     for img in all_images:
         if img.tags:
@@ -1321,6 +1498,7 @@ class UpdateOpenClawConfigRequest(BaseModel):
     instance_id: int
     models: Optional[dict] = None
     channels: Optional[dict] = None
+    agents: Optional[dict] = None
 
 
 @router.get("/{app_id}/openclaw-config")
@@ -1392,8 +1570,11 @@ async def get_openclaw_config(
 
         # Execute command to check if config file exists and read it
         config_path = "~/.openclaw/openclaw.json"
-        # Use 'test -f' to check if file exists, then cat if it does
-        exec_command = ['bash', '-c', f'if [ -f {config_path} ]; then cat {config_path}; else echo "FILE_NOT_FOUND"; fi']
+        ssh_user = container.user.cluster_username if container.user else None
+        if ssh_user:
+            exec_command = ['bash', '-c', f'su - {ssh_user} -c "if [ -f {config_path} ]; then cat {config_path}; else echo FILE_NOT_FOUND; fi"']
+        else:
+            exec_command = ['bash', '-c', f'if [ -f {config_path} ]; then cat {config_path}; else echo "FILE_NOT_FOUND"; fi']
 
         resp = stream(
             v1.connect_get_namespaced_pod_exec,
@@ -1555,7 +1736,11 @@ async def update_openclaw_config(
 
         # Read current config
         config_path = "~/.openclaw/openclaw.json"
-        exec_command = ['bash', '-c', f'cat {config_path}']
+        ssh_user = container.user.cluster_username if container.user else None
+        if ssh_user:
+            exec_command = ['bash', '-c', f'su - {ssh_user} -c "cat {config_path}"']
+        else:
+            exec_command = ['bash', '-c', f'cat {config_path}']
 
         resp = stream(
             v1.connect_get_namespaced_pod_exec,
@@ -1583,18 +1768,26 @@ async def update_openclaw_config(
             config_json["models"] = request.models
         if request.channels is not None:
             config_json["channels"] = request.channels
+        if request.agents is not None:
+            import copy
+            merged_agents = copy.deepcopy(config_json.get("agents", {}))
+            def deep_merge(base: dict, override: dict) -> dict:
+                for k, v in override.items():
+                    if isinstance(v, dict) and isinstance(base.get(k), dict):
+                        deep_merge(base[k], v)
+                    else:
+                        base[k] = v
+                return base
+            config_json["agents"] = deep_merge(merged_agents, request.agents)
 
         # Write back configuration file
         new_config = json.dumps(config_json, indent=2)
-
-        # Escape single quotes for bash heredoc
         new_config_escaped = new_config.replace("'", "'\"'\"'")
 
-        # Use heredoc to write file
-        write_command = [
-            'bash', '-c',
-            f"cat > {config_path} <<'EOF'\n{new_config}\nEOF"
-        ]
+        if ssh_user:
+            write_command = ['bash', '-c', f"su - {ssh_user} -c 'cat > {config_path}' <<'EOF'\n{new_config}\nEOF"]
+        else:
+            write_command = ['bash', '-c', f"cat > {config_path} <<'EOF'\n{new_config}\nEOF"]
 
         resp = stream(
             v1.connect_get_namespaced_pod_exec,

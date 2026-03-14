@@ -145,7 +145,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 dark:bg-slate-950 relative">
+    <div className="flex flex-col lg:flex-row min-h-screen [min-height:100svh] bg-gray-50 dark:bg-slate-950 relative">
       {/* 右上角主题和语言切换 */}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
         <ThemeToggle />
@@ -153,13 +153,13 @@ export default function LoginPage() {
       </div>
 
       {/* 左侧介绍 - 移动端隐藏或显示为顶部横幅 */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-blue-600 to-blue-800 dark:from-slate-900 dark:via-blue-950 dark:to-slate-950 text-white flex-col justify-center px-8 py-12 xl:px-16 relative dark:border-r dark:border-blue-900/30">
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-blue-600 to-blue-800 dark:from-slate-900 dark:via-blue-950 dark:to-slate-950 text-white flex-col justify-center px-8 py-12 xl:px-16 relative overflow-hidden dark:border-r dark:border-blue-900/30">
         {/* 夜间模式装饰渐变 */}
         <div className="hidden dark:block absolute inset-0 bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-transparent pointer-events-none"></div>
         <div className="hidden dark:block absolute bottom-0 right-0 w-96 h-96 bg-blue-500/5 blur-3xl rounded-full pointer-events-none"></div>
 
         <div className="relative z-10">
-          <div className="text-2xl xl:text-3xl font-bold mb-4 dark:bg-gradient-to-r dark:from-blue-300 dark:via-cyan-300 dark:to-blue-400 dark:bg-clip-text dark:text-transparent">{t('appName', { ns: 'common' })}</div>
+          <div className="text-2xl xl:text-3xl font-bold mb-4 dark:bg-gradient-to-r dark:from-blue-300 dark:via-cyan-300 dark:to-blue-400 dark:bg-clip-text dark:text-transparent safari-gradient-text">{t('appName', { ns: 'common' })}</div>
           <div className="text-lg xl:text-xl mb-6 tracking-wide dark:text-blue-200/90">{t('platformSubtitle')}</div>
           <ul className="text-sm xl:text-base leading-relaxed pl-5 space-y-3">
             <li className="mb-3">
@@ -191,7 +191,7 @@ export default function LoginPage() {
       <div className="lg:hidden bg-gradient-to-r from-blue-600 to-blue-700 dark:from-slate-900 dark:via-blue-950 dark:to-slate-900 dark:border-b dark:border-blue-900/30 text-white py-5 px-6 text-center relative overflow-hidden">
         <div className="hidden dark:block absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/10 pointer-events-none"></div>
         <div className="relative z-10">
-          <div className="text-xl font-bold mb-1 dark:bg-gradient-to-r dark:from-blue-300 dark:to-cyan-300 dark:bg-clip-text dark:text-transparent">{t('appName', { ns: 'common' })}</div>
+          <div className="text-xl font-bold mb-1 dark:bg-gradient-to-r dark:from-blue-300 dark:to-cyan-300 dark:bg-clip-text dark:text-transparent safari-gradient-text">{t('appName', { ns: 'common' })}</div>
           <div className="text-xs opacity-90 dark:text-blue-200/80">{t('platformSubtitle')}</div>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function LoginPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full flex items-center justify-center mr-2.5 shadow-blue-500/30">
               <span className="text-white font-bold text-sm">K8S</span>
             </div>
-            <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text dark:text-transparent">
+            <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text dark:text-transparent safari-gradient-text">
               {t('appName', { ns: 'common' })}
             </div>
             <span className="text-gray-400 text-sm sm:text-base ml-2 font-normal">{t('platformTitle')}</span>

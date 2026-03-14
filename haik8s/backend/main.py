@@ -4,6 +4,7 @@ HAI-K8S Backend - FastAPI Application
 Author: Zhengde ZHANG
 """
 import sys
+import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -37,6 +38,10 @@ from api.documentation import router as docs_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     init_db()
     set_jwt_config(
         secret_key=Config.JWT_SECRET_KEY,

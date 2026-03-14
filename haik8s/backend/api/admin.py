@@ -1,12 +1,15 @@
 """
 Admin API endpoints
 """
+import json
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
+from pydantic import BaseModel
 
 from db.database import get_session
-from db.models import User, UserRole, ContainerStatus
+from db.models import User, UserRole, ContainerStatus, ApplicationDefinition
 from db.crud import (
     list_users,
     update_user,
@@ -291,3 +294,222 @@ async def admin_restart_pod(
         return {"message": "Pod restart initiated (deleted, will be recreated by controller if exists)"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to restart pod: {str(e)}")
+
+
+# ==================== Application Management Endpoints ====================
+
+
+class ApplicationDefinitionCreate(BaseModel):
+    """Create application definition request"""
+    app_id: str
+    name: str
+    description: Optional[str] = None
+    version: str = "v1.0.0"
+    image_prefix: str = ""
+    default_replicas: int = 1
+    is_visible: bool = True
+    recommended_cpu: float = 2.0
+    recommended_memory: float = 4.0
+    recommended_gpu: int = 0
+    default_firewall_rules: Optional[list[dict]] = None
+    startup_scripts_config: Optional[dict] = None
+    models_config_template: Optional[dict] = None
+    available_images: Optional[list[dict]] = None
+
+
+class ApplicationDefinitionUpdate(BaseModel):
+    """Update application definition request"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    version: Optional[str] = None
+    image_prefix: Optional[str] = None
+    default_replicas: Optional[int] = None
+    is_visible: Optional[bool] = None
+    recommended_cpu: Optional[float] = None
+    recommended_memory: Optional[float] = None
+    recommended_gpu: Optional[int] = None
+    default_firewall_rules: Optional[list[dict]] = None
+    startup_scripts_config: Optional[dict] = None
+    models_config_template: Optional[dict] = None
+    available_images: Optional[list[dict]] = None
+
+
+class ApplicationDefinitionResponse:
+    """Application definition response"""
+    def __init__(self, app: ApplicationDefinition):
+        self.id = app.id
+        self.app_id = app.app_id
+        self.name = app.name
+        self.description = app.description
+        self.version = app.version
+        self.image_prefix = app.image_prefix
+        self.default_replicas = app.default_replicas
+        self.is_visible = app.is_visible
+        self.recommended_cpu = app.recommended_cpu
+        self.recommended_memory = app.recommended_memory
+        self.recommended_gpu = app.recommended_gpu
+        self.default_firewall_rules = json.loads(app.default_firewall_rules) if app.default_firewall_rules else None
+        self.startup_scripts_config = json.loads(app.startup_scripts_config) if app.startup_scripts_config else None
+        self.models_config_template = json.loads(app.models_config_template) if app.models_config_template else None
+        self.created_at = app.created_at
+        self.updated_at = app.updated_at
+
+
+def application_response_dict(app: ApplicationDefinition) -> dict:
+    """Convert ApplicationDefinition to response dict"""
+    return {
+        "id": app.id,
+        "app_id": app.app_id,
+        "name": app.name,
+        "description": app.description,
+        "version": app.version,
+        "image_prefix": app.image_prefix,
+        "default_replicas": app.default_replicas,
+        "is_visible": app.is_visible,
+        "recommended_cpu": app.recommended_cpu,
+        "recommended_memory": app.recommended_memory,
+        "recommended_gpu": app.recommended_gpu,
+        "default_firewall_rules": json.loads(app.default_firewall_rules) if app.default_firewall_rules else None,
+        "startup_scripts_config": json.loads(app.startup_scripts_config) if app.startup_scripts_config else None,
+        "models_config_template": json.loads(app.models_config_template) if app.models_config_template else None,
+        "available_images": json.loads(app.available_images) if app.available_images else [],
+        "created_at": app.created_at,
+        "updated_at": app.updated_at,
+    }
+
+
+@router.get("/applications")
+async def admin_list_applications(
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """List all application definitions"""
+    apps = session.exec(select(ApplicationDefinition)).all()
+    return [application_response_dict(app) for app in apps]
+
+
+@router.get("/applications/{app_id}", response_model=dict)
+async def admin_get_application(
+    app_id: str,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Get a specific application definition"""
+    app = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return application_response_dict(app)
+
+
+@router.post("/applications")
+async def admin_create_application(
+    req: ApplicationDefinitionCreate,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Create a new application definition"""
+    # Check if app_id already exists
+    existing = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == req.app_id)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Application with id '{req.app_id}' already exists")
+
+    app = ApplicationDefinition(
+        app_id=req.app_id,
+        name=req.name,
+        description=req.description,
+        version=req.version,
+        image_prefix=req.image_prefix,
+        default_replicas=req.default_replicas,
+        is_visible=req.is_visible,
+        recommended_cpu=req.recommended_cpu,
+        recommended_memory=req.recommended_memory,
+        recommended_gpu=req.recommended_gpu,
+        default_firewall_rules=json.dumps(req.default_firewall_rules) if req.default_firewall_rules else None,
+        startup_scripts_config=json.dumps(req.startup_scripts_config) if req.startup_scripts_config else None,
+        models_config_template=json.dumps(req.models_config_template) if req.models_config_template else None,
+        available_images=json.dumps(req.available_images) if req.available_images else None,
+    )
+    session.add(app)
+    session.commit()
+    session.refresh(app)
+    return application_response_dict(app)
+
+
+@router.put("/applications/{app_id}")
+async def admin_update_application(
+    app_id: str,
+    req: ApplicationDefinitionUpdate,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Update an application definition"""
+    app = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Update fields if provided using model_dump()
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        # Skip None and empty string values
+        if value is None or value == "":
+            continue
+
+        if key in ['default_firewall_rules', 'startup_scripts_config', 'models_config_template', 'available_images']:
+            # Convert to JSON only if it's a dict/list (not already a string)
+            if isinstance(value, (dict, list)):
+                setattr(app, key, json.dumps(value))
+            else:
+                setattr(app, key, value)
+        else:
+            setattr(app, key, value)
+
+    app.updated_at = datetime.utcnow()
+    session.add(app)
+    session.commit()
+    session.refresh(app)
+    return application_response_dict(app)
+
+
+@router.delete("/applications/{app_id}")
+async def admin_delete_application(
+    app_id: str,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Delete an application definition"""
+    app = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    session.delete(app)
+    session.commit()
+    return {"message": f"Application '{app_id}' deleted successfully"}
+
+
+@router.patch("/applications/{app_id}/toggle-visibility")
+async def admin_toggle_application_visibility(
+    app_id: str,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Toggle application visibility"""
+    app = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    app.is_visible = not app.is_visible
+    app.updated_at = datetime.utcnow()
+    session.add(app)
+    session.commit()
+    session.refresh(app)
+    return application_response_dict(app)

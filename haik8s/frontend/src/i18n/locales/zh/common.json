@@ -12,6 +12,7 @@
   "admin": "管理员",
   "users": "用户管理",
   "images": "镜像管理",
+  "applications": "应用管理",
   "cluster": "集群管理",
   "pods": "Pods管理",
   "overview": "资源总览",

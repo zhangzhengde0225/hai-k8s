@@ -12,6 +12,7 @@
   "admin": "Admin",
   "users": "Users",
   "images": "Images",
+  "applications": "Applications",
   "cluster": "Cluster",
   "pods": "Pods",
   "overview": "Overview",

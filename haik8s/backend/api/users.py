@@ -42,3 +42,17 @@ async def get_me(
         cluster_gid=current_user.cluster_gid,
         cluster_home_dir=current_user.cluster_home_dir,
     )
+
+
+@router.get("/key")
+async def get_user_key(current_user: User = Depends(get_current_user)):
+    """返回当前用户的 HepAI API Key（full_key 用于脚本注入，masked_key 用于展示）"""
+    key = current_user.api_key_of_hepai
+    if not key:
+        return {"masked_key": None, "full_key": None}
+    if len(key) <= 8:
+        masked = "*" * len(key)
+    else:
+        masked = key[:4] + "****" + key[-4:]
+    return {"masked_key": masked, "full_key": key}
+

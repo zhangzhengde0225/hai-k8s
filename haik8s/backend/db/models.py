@@ -194,3 +194,29 @@ class IPAllocation(SQLModel, table=True):
         """SQLModel配置"""
         table = True
         arbitrary_types_allowed = True
+
+
+class ApplicationDefinition(SQLModel, table=True):
+    """应用定义表 - 存储平台支持的应用列表"""
+    __tablename__ = "application_definitions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    app_id: str = Field(unique=True, index=True)  # 'openclaw', 'opendrsai'
+    name: str = Field(max_length=100)
+    description: Optional[str] = Field(default=None)
+    version: str = Field(max_length=50)
+    image_prefix: str = Field(max_length=50)
+    default_replicas: int = Field(default=1)
+    is_visible: bool = Field(default=True)
+    # 推荐资源配置
+    recommended_cpu: float = Field(default=2.0)
+    recommended_memory: float = Field(default=4.0)
+    recommended_gpu: int = Field(default=0)
+    # OpenClaw特定配置
+    default_firewall_rules: Optional[str] = Field(default=None)  # JSON
+    startup_scripts_config: Optional[str] = Field(default=None)  # JSON
+    models_config_template: Optional[str] = Field(default=None)  # JSON
+    # 可用镜像列表（多版本支持）
+    available_images: Optional[str] = Field(default=None)  # JSON: [{"tag": "v1.0.0", "registry_url": "...", "description": "...", "is_default": true}]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -107,6 +107,9 @@ export interface Application {
   replicas?: number;
   total_instances?: number;
   defaultImage?: string;  // Default recommended image name (e.g., "Hai-OpenClaw")
+  recommended_cpu?: number;
+  recommended_memory?: number;
+  recommended_gpu?: number;
   // Configuration information
   config?: {
     id: number;
@@ -249,4 +252,65 @@ export interface PodDetail {
   volumes: PodVolume[];
   restart_policy: string | null;
   service_account: string | null;
+}
+
+// ==================== 应用定义相关类型 ====================
+
+export interface ApplicationDefinition {
+  id: number;
+  app_id: string;
+  name: string;
+  description: string | null;
+  version: string;
+  image_prefix: string;
+  default_replicas: number;
+  is_visible: boolean;
+  recommended_cpu: number;
+  recommended_memory: number;
+  recommended_gpu: number;
+  default_firewall_rules: FirewallRuleConfig[] | null;
+  startup_scripts_config: StartupScriptsConfig | null;
+  models_config_template: ModelsConfigTemplate | null;
+  available_images: AvailableImage[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AvailableImage {
+  tag: string;
+  registry_url: string;
+  description: string;
+  is_default: boolean;
+}
+
+export interface StartupScriptsConfig {
+  enable_onboard: boolean;           // 非交互式初始化
+  enable_insecure_http: boolean;     // 允许HTTP认证
+  enable_config_models: boolean;     // 配置模型
+  enable_start_gateway: boolean;      // 启动网关
+  allow_port_18789: boolean;         // 放通端口18789
+  gateway_password?: string;
+  hepai_api_key?: string;
+}
+
+export interface ModelsConfigTemplate {
+  providers?: Array<{
+    baseUrl: string;
+    apiKey?: string;
+    api: string;
+    models: Array<{
+      id: string;
+      name: string;
+      maxTokens?: number;
+    }>;
+  }>;
+  primary?: string;
+  fallbacks?: string[];
+}
+
+export interface FirewallRuleConfig {
+  port: number | string;
+  protocol: string;
+  source: string;
+  action: string;
 }
