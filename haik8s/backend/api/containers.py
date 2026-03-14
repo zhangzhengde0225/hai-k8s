@@ -24,6 +24,7 @@ from k8s_service.client import ensure_namespace
 
 logger = logging.getLogger(__name__)
 from k8s_service.pods import create_pod, delete_pod, get_pod_status, get_pod_logs, get_pod_events, get_pod_details
+from k8s_service.cache import get_pod_status_cached
 from k8s_service.services import create_ssh_service, delete_service
 from utils.k8s_names import sanitize_k8s_name, make_namespace
 
@@ -53,13 +54,24 @@ async def list_containers(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """List current user's containers with on-demand K8s status sync"""
+    """List current user's containers with on-demand K8s status sync (concurrent)"""
     containers = list_containers_by_user(session, current_user.id)
+    active = [
+        c for c in containers
+        if c.status in (ContainerStatus.RUNNING, ContainerStatus.CREATING)
+        and c.k8s_pod_name and c.k8s_namespace
+    ]
+
+    loop = asyncio.get_event_loop()
+    k8s_phases = await asyncio.gather(
+        *[loop.run_in_executor(None, get_pod_status_cached, c.k8s_namespace, c.k8s_pod_name) for c in active]
+    )
+    phase_map = {c.id: phase for c, phase in zip(active, k8s_phases)}
+
     result = []
     for c in containers:
-        # Sync status from K8s for active containers
-        if c.status in (ContainerStatus.RUNNING, ContainerStatus.CREATING) and c.k8s_pod_name and c.k8s_namespace:
-            k8s_phase = get_pod_status(c.k8s_namespace, c.k8s_pod_name)
+        k8s_phase = phase_map.get(c.id)
+        if k8s_phase is not None or c.id in phase_map:
             if k8s_phase is None:
                 update_container(session, c.id, status=ContainerStatus.STOPPED)
                 c.status = ContainerStatus.STOPPED

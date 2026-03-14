@@ -15,6 +15,7 @@ from datetime import datetime
 from db.database import get_session
 from db.models import User, Container, Image, ContainerStatus, ApplicationConfig, ConfigStatus, ApplicationDefinition
 from k8s_service.pods import delete_pod, create_app_pod, get_pod_status
+from k8s_service.cache import get_pod_status_cached
 from k8s_service.services import delete_service
 from auth.dependencies import get_current_user
 from config import Config
@@ -278,6 +279,9 @@ async def list_applications(
             'recommended_cpu': app_def.recommended_cpu,
             'recommended_memory': app_def.recommended_memory,
             'recommended_gpu': app_def.recommended_gpu,
+            'max_cpu': app_def.max_cpu,
+            'max_memory': app_def.max_memory,
+            'max_gpu': app_def.max_gpu,
         }
 
         # Add config info if exists
@@ -556,16 +560,29 @@ async def get_application_instances(
         )
     ).all()
 
-    # Build response with K8s status sync
+    # Build response with K8s status sync (concurrent K8s calls via thread-pool)
+    loop = asyncio.get_event_loop()
+
+    async def _fetch_k8s_status(namespace, pod_name):
+        return await loop.run_in_executor(None, get_pod_status_cached, namespace, pod_name)
+
+    async def _none():
+        return None
+
+    k8s_tasks = [
+        _fetch_k8s_status(c.k8s_namespace, c.k8s_pod_name)
+        if (c.k8s_pod_name and c.k8s_namespace)
+        else _none()
+        for c in containers
+    ]
+    k8s_statuses = await asyncio.gather(*k8s_tasks)
+
     instances = []
-    for container in containers:
+    for container, k8s_status in zip(containers, k8s_statuses):
         # Get image info
         image = session.get(Image, container.image_id)
 
-        # Sync K8s status
-        k8s_status = None
-        if container.k8s_pod_name and container.k8s_namespace:
-            k8s_status = get_pod_status(container.k8s_namespace, container.k8s_pod_name)
+        # k8s_status already fetched concurrently above
 
         ssh_command = None
         ssh_user = None

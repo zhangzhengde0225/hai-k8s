@@ -110,6 +110,9 @@ export interface Application {
   recommended_cpu?: number;
   recommended_memory?: number;
   recommended_gpu?: number;
+  max_cpu?: number | null;
+  max_memory?: number | null;
+  max_gpu?: number | null;
   // Configuration information
   config?: {
     id: number;
@@ -268,6 +271,9 @@ export interface ApplicationDefinition {
   recommended_cpu: number;
   recommended_memory: number;
   recommended_gpu: number;
+  max_cpu: number | null;
+  max_memory: number | null;
+  max_gpu: number | null;
   default_firewall_rules: FirewallRuleConfig[] | null;
   startup_scripts_config: StartupScriptsConfig | null;
   models_config_template: ModelsConfigTemplate | null;

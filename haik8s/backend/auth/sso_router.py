@@ -124,68 +124,73 @@ async def sso_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing required fields in SSO response",
         )
+    
+    user = get_user_by_sso_id(session, sso_id)
 
-    # Fetch cluster info (sn/uid/gid/home_dir) from IHEP user info API — non-critical
-    cluster_username = None
-    cluster_uid = None
-    cluster_gid = None
-    cluster_home_dir = None
-    try:
-        async with httpx.AsyncClient() as info_client:
-            info_resp = await info_client.get(
-                "https://newlogin.ihep.ac.cn/api/searchUserInfo",
-                params={"username": email},
-                timeout=5.0,
-            )
-            if info_resp.status_code == 200:
-                body = info_resp.json()
-                if body.get("code") == 1:
-                    data = body["data"]
-                    cluster_username = data.get("sn") or None
-                    if cluster_username:
-                        cluster_home_dir = f"/aifs/user/home/{cluster_username}"
-                        # Use system `id` to get real uid/gid for this cluster account
-                        try:
-                            import pwd
-                            pw = pwd.getpwnam(cluster_username)
-                            cluster_uid = pw.pw_uid
-                            cluster_gid = pw.pw_gid
-                        except KeyError:
-                            # Cluster account not in local passwd db; fall back to SSO uid
-                            uid = data.get("uid")
-                            if uid:
-                                cluster_uid = int(uid)
-    except Exception:
-        pass  # 非关键步骤，获取失败不影响登录
+    # Fetch cluster info (sn/uid/gid/home_dir) — non-critical
+    cluster_username = user.cluster_username if user else None
+    cluster_uid = user.cluster_uid if user else None
+    cluster_gid = user.cluster_gid if user else None
+    cluster_home_dir = user.cluster_home_dir if user else None
 
-    # Fetch HepAI API key for new user — non-critical
-    api_key_of_hepai = None
-    if Config.HEPAI_SUBAPP_ADMIN_KEY:
+    if not all([cluster_username, cluster_uid, cluster_gid, cluster_home_dir]):
         try:
-            async with httpx.AsyncClient() as hepai_client:
-                hepai_resp = await hepai_client.post(
-                    "https://aiapi.ihep.ac.cn/apiv2/key/fetch_api_key",
-                    json={"username": email},
-                    headers={
-                        "Authorization": f"Bearer {Config.HEPAI_SUBAPP_ADMIN_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=10.0,
+            async with httpx.AsyncClient() as info_client:
+                info_resp = await info_client.get(
+                    "https://newlogin.ihep.ac.cn/api/searchUserInfo",
+                    params={"username": email},
+                    timeout=5.0,
                 )
-                if hepai_resp.status_code == 200:
-                    api_key_of_hepai = hepai_resp.json().get("api_key")
+                if info_resp.status_code == 200:
+                    body = info_resp.json()
+                    if body.get("code") == 1:
+                        data = body["data"]
+                        if not cluster_username:
+                            cluster_username = data.get("sn") or None
+                        if cluster_username and not cluster_home_dir:
+                            cluster_home_dir = f"/aifs/user/home/{cluster_username}"
+                        if not all([cluster_uid, cluster_gid]) and cluster_username:
+                            try:
+                                import pwd
+                                pw = pwd.getpwnam(cluster_username)
+                                cluster_uid = cluster_uid or pw.pw_uid
+                                cluster_gid = cluster_gid or pw.pw_gid
+                            except KeyError:
+                                uid = data.get("uid")
+                                if uid and not cluster_uid:
+                                    cluster_uid = int(uid)
         except Exception:
             pass  # 非关键步骤，获取失败不影响登录
 
+    # Fetch HepAI API key for new user — non-critical
+    api_key_of_hepai = user.api_key_of_hepai if user else None
+    if not api_key_of_hepai and not user:
+        if Config.HEPAI_SUBAPP_ADMIN_KEY:
+            try:
+                async with httpx.AsyncClient() as hepai_client:
+                    hepai_resp = await hepai_client.post(
+                        "https://aiapi.ihep.ac.cn/apiv2/key/fetch_api_key",
+                        json={"username": email},
+                        headers={
+                            "Authorization": f"Bearer {Config.HEPAI_SUBAPP_ADMIN_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        timeout=10.0,
+                    )
+                    if hepai_resp.status_code == 200:
+                        api_key_of_hepai = hepai_resp.json().get("api_key")
+            except Exception:
+                pass  # 非关键步骤，获取失败不影响登录
+
     # Create or update user
     # umtId (sso_id) 用作数据库 user id，如无法转换则交由数据库自增
-    umt_user_id: Optional[int] = None
+    umt_user_id: Optional[int] = user.id if user else None
     try:
         umt_user_id = int(sso_id)
     except (ValueError, TypeError):
         pass
 
-    user = get_user_by_sso_id(session, sso_id)
+    
     if not user:
         user = create_sso_user(
             session=session,

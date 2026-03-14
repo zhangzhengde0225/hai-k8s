@@ -206,7 +206,7 @@ export default function BasicConfig({ application, editData, setEditData, isEdit
 
       {/* Default Config */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">默认配置</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">默认算力配置</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">最大实例数</label>
@@ -232,7 +232,7 @@ export default function BasicConfig({ application, editData, setEditData, isEdit
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">推荐内存</label>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">推荐内存 (GiB)</label>
             <input
               type="number"
               step="0.5"
@@ -251,6 +251,44 @@ export default function BasicConfig({ application, editData, setEditData, isEdit
               value={editData.recommended_gpu || 0}
               onChange={(e) => updateField('recommended_gpu', parseInt(e.target.value) || 0)}
               disabled={!isEditing}
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">最大CPU</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={editData.max_cpu ?? ''}
+              onChange={(e) => updateField('max_cpu', e.target.value === '' ? null : parseFloat(e.target.value))}
+              disabled={!isEditing}
+              placeholder="不限"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">最大内存 (GiB)</label>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={editData.max_memory ?? ''}
+              onChange={(e) => updateField('max_memory', e.target.value === '' ? null : parseFloat(e.target.value))}
+              disabled={!isEditing}
+              placeholder="不限"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">最大GPU</label>
+            <input
+              type="number"
+              min="0"
+              value={editData.max_gpu ?? ''}
+              onChange={(e) => updateField('max_gpu', e.target.value === '' ? null : parseInt(e.target.value))}
+              disabled={!isEditing}
+              placeholder="不限"
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
             />
           </div>

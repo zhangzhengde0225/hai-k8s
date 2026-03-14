@@ -1,13 +1,16 @@
 """
 Admin API endpoints
+
+Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
 """
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 
+from config import Config
 from db.database import get_session
 from db.models import User, UserRole, ContainerStatus, ApplicationDefinition
 from db.crud import (
@@ -17,8 +20,10 @@ from db.crud import (
     get_user_resource_usage,
     list_all_containers,
     get_image_by_id,
+    get_user_by_username,
 )
 from auth.dependencies import require_role
+from auth.security import verify_password, create_access_token
 from schemas.user import UserResponse, UserUpdateRequest
 from schemas.container import ContainerResponse
 from k8s_service.client import get_core_v1
@@ -105,6 +110,64 @@ async def admin_update_user(
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )
+
+
+class SwitchUserRequest(BaseModel):
+    target_username: str
+    admin_password: str
+
+
+@router.post("/switch-user")
+async def admin_switch_user(
+    req: SwitchUserRequest,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """
+    Admin impersonates a target user by verifying admin password and issuing a JWT for that user.
+    Only admin users with a local password can use this feature.
+    """
+    # Admin must have a local password to verify
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin account does not have a local password. Cannot verify identity.",
+        )
+
+    # Verify admin password
+    if not verify_password(req.admin_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin password",
+        )
+
+    # Find target user
+    target_user = get_user_by_username(session, req.target_username)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not target_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Target user account is disabled",
+        )
+
+    # Generate JWT token for target user
+    jwt_token = create_access_token(
+        target_user,
+        expires_delta=timedelta(minutes=Config.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    return {
+        "access_token": jwt_token,
+        "token_type": "bearer",
+        "username": target_user.username,
+        "email": target_user.email,
+        "role": target_user.role.value if isinstance(target_user.role, UserRole) else target_user.role,
+    }
 
 
 @router.get("/cluster")
@@ -311,6 +374,9 @@ class ApplicationDefinitionCreate(BaseModel):
     recommended_cpu: float = 2.0
     recommended_memory: float = 4.0
     recommended_gpu: int = 0
+    max_cpu: Optional[float] = None
+    max_memory: Optional[float] = None
+    max_gpu: Optional[int] = None
     default_firewall_rules: Optional[list[dict]] = None
     startup_scripts_config: Optional[dict] = None
     models_config_template: Optional[dict] = None
@@ -328,6 +394,9 @@ class ApplicationDefinitionUpdate(BaseModel):
     recommended_cpu: Optional[float] = None
     recommended_memory: Optional[float] = None
     recommended_gpu: Optional[int] = None
+    max_cpu: Optional[float] = None
+    max_memory: Optional[float] = None
+    max_gpu: Optional[int] = None
     default_firewall_rules: Optional[list[dict]] = None
     startup_scripts_config: Optional[dict] = None
     models_config_template: Optional[dict] = None
@@ -369,6 +438,9 @@ def application_response_dict(app: ApplicationDefinition) -> dict:
         "recommended_cpu": app.recommended_cpu,
         "recommended_memory": app.recommended_memory,
         "recommended_gpu": app.recommended_gpu,
+        "max_cpu": app.max_cpu,
+        "max_memory": app.max_memory,
+        "max_gpu": app.max_gpu,
         "default_firewall_rules": json.loads(app.default_firewall_rules) if app.default_firewall_rules else None,
         "startup_scripts_config": json.loads(app.startup_scripts_config) if app.startup_scripts_config else None,
         "models_config_template": json.loads(app.models_config_template) if app.models_config_template else None,
@@ -428,6 +500,9 @@ async def admin_create_application(
         recommended_cpu=req.recommended_cpu,
         recommended_memory=req.recommended_memory,
         recommended_gpu=req.recommended_gpu,
+        max_cpu=req.max_cpu,
+        max_memory=req.max_memory,
+        max_gpu=req.max_gpu,
         default_firewall_rules=json.dumps(req.default_firewall_rules) if req.default_firewall_rules else None,
         startup_scripts_config=json.dumps(req.startup_scripts_config) if req.startup_scripts_config else None,
         models_config_template=json.dumps(req.models_config_template) if req.models_config_template else None,
@@ -455,9 +530,12 @@ async def admin_update_application(
 
     # Update fields if provided using model_dump()
     update_data = req.model_dump(exclude_unset=True)
+    nullable_fields = {'max_cpu', 'max_memory', 'max_gpu'}
     for key, value in update_data.items():
-        # Skip None and empty string values
-        if value is None or value == "":
+        # Skip empty string values; allow None for nullable fields
+        if value == "":
+            continue
+        if value is None and key not in nullable_fields:
             continue
 
         if key in ['default_firewall_rules', 'startup_scripts_config', 'models_config_template', 'available_images']:

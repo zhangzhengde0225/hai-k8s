@@ -67,6 +67,7 @@ export default function AppDetails() {
 
   const detailRef = useRef<HTMLDivElement>(null);
   const prevStatusRef = useRef<string | null>(null);
+  const prevInstancesRef = useRef<AppInstance[]>([]);
   const initializedFromUrlRef = useRef(initialSelectedId !== null);
 
   // ── Data loading ──────────────────────────────────────────────────────────
@@ -92,10 +93,11 @@ export default function AppDetails() {
           .finally(() => setDetailLoading(false));
       }
 
-      // Update detail for currently selected instance
+      // Update detail for currently selected instance only when its status changed
       if (selectedId !== null) {
         const currentInstance = list.find((inst) => inst.id === selectedId);
-        if (currentInstance) {
+        const prevInstance = prevInstancesRef.current.find((inst) => inst.id === selectedId);
+        if (currentInstance && prevInstance?.status !== currentInstance.status) {
           try {
             const detailRes = await client.get(`/containers/${selectedId}`);
             setDetail(detailRes.data);
@@ -104,6 +106,8 @@ export default function AppDetails() {
           }
         }
       }
+
+      prevInstancesRef.current = list;
     } catch {
       toast.error('加载实例列表失败');
     } finally {
@@ -165,11 +169,16 @@ export default function AppDetails() {
     );
     if (!hasNonRunning) return;
 
-    const timer = setInterval(() => {
-      loadInstances(true);
-    }, 2000);
+    const tick = () => {
+      if (document.visibilityState === 'visible') loadInstances(true);
+    };
 
-    return () => clearInterval(timer);
+    const timer = setInterval(tick, 4000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, [instances, appId]);
 
   // Load container detail when selecting an instance

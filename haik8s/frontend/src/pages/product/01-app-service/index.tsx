@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
-import { AppWindow, Play, Square, Settings, Globe, List, Loader2 } from 'lucide-react';
+import { AppWindow, Play, Square, Settings, Globe, List, Loader2, TriangleAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Drawer from '../../../components/Drawer';
@@ -12,7 +12,7 @@ import { useAuthStore } from '../../../auth/AuthContext';
 export default function AppService() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const updateUser = useAuthStore((state) => state.updateUser);
+  const { user, updateUser } = useAuthStore();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -171,6 +171,25 @@ export default function AppService() {
 
   return (
     <div>
+      {/* Cluster account warning */}
+      {user && (!user.cluster_username || user.cluster_uid == null || user.cluster_gid == null || !user.cluster_home_dir) && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-600/50 dark:bg-yellow-900/20 dark:text-yellow-300">
+          <TriangleAlert size={16} className="mt-0.5 flex-shrink-0" />
+          <span>
+            您尚未开通HAI集群账号，部分功能受限，请前往{' '}
+            <a
+              href="https://ai.ihep.ac.cn/#/computing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-2 hover:text-yellow-900 dark:hover:text-yellow-200"
+            >
+              HAI平台-算力
+            </a>
+            {' '}查看和开通。
+          </span>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="mb-4 md:mb-6">
         <div className="flex items-center gap-2 md:gap-3 mb-2">

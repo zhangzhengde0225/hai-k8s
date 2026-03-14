@@ -160,12 +160,15 @@ export default function Documentation() {
                 prose-code:text-pink-600 dark:prose-code:text-pink-400
                 prose-code:bg-gray-100 dark:prose-code:bg-slate-900
                 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
-                prose-pre:bg-gray-900 dark:prose-pre:bg-slate-950
-                prose-pre:text-gray-100
+                prose-pre:bg-gray-100 dark:prose-pre:bg-slate-900
+                prose-pre:text-gray-800 dark:prose-pre:text-gray-100
                 prose-strong:text-gray-900 dark:prose-strong:text-white
                 prose-table:text-gray-700 dark:prose-table:text-slate-300
-                prose-th:bg-gray-100 dark:prose-th:bg-slate-900
-                prose-td:border-gray-300 dark:prose-td:border-slate-700"
+                prose-th:bg-gray-100 dark:prose-th:bg-slate-800
+                prose-th:text-gray-900 dark:prose-th:text-slate-100
+                prose-td:text-gray-700 dark:prose-td:text-slate-300
+                prose-td:border-gray-300 dark:prose-td:border-slate-600
+                prose-li:text-gray-700 dark:prose-li:text-slate-300"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           )}

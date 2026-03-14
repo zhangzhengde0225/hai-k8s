@@ -212,6 +212,10 @@ class ApplicationDefinition(SQLModel, table=True):
     recommended_cpu: float = Field(default=2.0)
     recommended_memory: float = Field(default=4.0)
     recommended_gpu: int = Field(default=0)
+    # 最大资源限制（None 表示不限）
+    max_cpu: Optional[float] = Field(default=None)
+    max_memory: Optional[float] = Field(default=None)
+    max_gpu: Optional[int] = Field(default=None)
     # OpenClaw特定配置
     default_firewall_rules: Optional[str] = Field(default=None)  # JSON
     startup_scripts_config: Optional[str] = Field(default=None)  # JSON

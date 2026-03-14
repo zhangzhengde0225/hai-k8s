@@ -32,6 +32,9 @@ interface Application {
   recommended_cpu?: number;
   recommended_memory?: number;
   recommended_gpu?: number;
+  max_cpu?: number | null;
+  max_memory?: number | null;
+  max_gpu?: number | null;
 }
 
 interface AppConfigFormProps {
@@ -519,39 +522,60 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
-              vCPU（核）
+              vCPU（核）{application.max_cpu != null && <span className="ml-1 text-gray-400 font-normal">最大 {application.max_cpu}</span>}
             </label>
             <input
               type="text"
               inputMode="decimal"
               value={cpu}
               onChange={(e) => setCpu(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white ${
+                application.max_cpu != null && parseFloat(cpu) > application.max_cpu
+                  ? 'border-red-400 dark:border-red-500'
+                  : 'border-gray-300 dark:border-slate-600'
+              }`}
             />
+            {application.max_cpu != null && parseFloat(cpu) > application.max_cpu && (
+              <p className="mt-1 text-xs text-red-500">超出最大限制 {application.max_cpu} 核</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
-              {t('memoryGB')}
+              {t('memoryGB')}{application.max_memory != null && <span className="ml-1 text-gray-400 font-normal">最大 {application.max_memory} GiB</span>}
             </label>
             <input
               type="text"
               inputMode="decimal"
               value={memory}
               onChange={(e) => setMemory(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white ${
+                application.max_memory != null && parseFloat(memory) > application.max_memory
+                  ? 'border-red-400 dark:border-red-500'
+                  : 'border-gray-300 dark:border-slate-600'
+              }`}
             />
+            {application.max_memory != null && parseFloat(memory) > application.max_memory && (
+              <p className="mt-1 text-xs text-red-500">超出最大限制 {application.max_memory} GiB</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
-              {t('gpu')}
+              {t('gpu')}{application.max_gpu != null && <span className="ml-1 text-gray-400 font-normal">最大 {application.max_gpu}</span>}
             </label>
             <input
               type="text"
               inputMode="numeric"
               value={gpu}
               onChange={(e) => setGpu(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-white ${
+                application.max_gpu != null && parseInt(gpu, 10) > application.max_gpu
+                  ? 'border-red-400 dark:border-red-500'
+                  : 'border-gray-300 dark:border-slate-600'
+              }`}
             />
+            {application.max_gpu != null && parseInt(gpu, 10) > application.max_gpu && (
+              <p className="mt-1 text-xs text-red-500">超出最大限制 {application.max_gpu} 个</p>
+            )}
           </div>
         </div>
       </div>
