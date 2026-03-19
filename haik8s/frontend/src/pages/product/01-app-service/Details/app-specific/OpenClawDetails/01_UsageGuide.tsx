@@ -132,14 +132,14 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
   const [fullKey, setFullKey] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  const isRunning = instance.status === 'running';
+
   const toggleOverride = (g: number, key: 'autoStart' | 'autoClose', current: boolean) => {
     setGroupOverrides((prev) => ({
       ...prev,
       [g]: { ...prev[g], [key]: !current },
     }));
   };
-
-  const isRunning = instance.status === 'running';
 
   // Read scripts from admin config, grouped (exclude disabled scripts)
   const rawScripts: Script[] = (appInfo.startup_scripts_config?.scripts ?? []).filter(
@@ -311,28 +311,38 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
               <div key={g} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1 text-center">
                   <div className="flex items-center gap-2 mb-2">
+                    {/* Step indicator — large, on the left */}
                     {done ? (
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md">
-                        <Check size={24} strokeWidth={3} />
+                      <div className="flex-shrink-0 w-14 h-14 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md">
+                        <Check size={28} strokeWidth={3} />
                       </div>
                     ) : (
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg shadow-md">
+                      <div className="flex-shrink-0 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-2xl shadow-md">
                         {stepNumber}
                       </div>
                     )}
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+
+                    {/* Right: prominent button + toggles */}
+                    <div className="flex flex-col items-start gap-1">
+                      <button
+                        type="button"
+                        onClick={handleExecute}
+                        disabled={!isRunning}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow transition-all ${
+                          done
+                            ? 'bg-green-500 hover:bg-green-600 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        } disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none`}
+                      >
                         {groupTitle}
-                      </span>
+                      </button>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => toggleOverride(g, 'autoStart', autoStart)}
                           title={autoStart ? '自动执行（点击关闭）' : '手动执行（点击开启自动执行）'}
                           className={`flex items-center p-0.5 rounded transition-colors hover:bg-gray-200 dark:hover:bg-slate-700 ${
-                            autoStart
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-gray-300 dark:text-slate-600'
+                            autoStart ? 'text-green-600 dark:text-green-400' : 'text-gray-300 dark:text-slate-600'
                           }`}
                         >
                           <Zap className="w-3 h-3" />
@@ -342,9 +352,7 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
                           onClick={() => toggleOverride(g, 'autoClose', autoClose)}
                           title={autoClose ? '执行后自动关闭弹窗（点击关闭）' : '执行后保持弹窗（点击开启自动关闭）'}
                           className={`flex items-center p-0.5 rounded transition-colors hover:bg-gray-200 dark:hover:bg-slate-700 ${
-                            autoClose
-                              ? 'text-orange-500 dark:text-orange-400'
-                              : 'text-gray-300 dark:text-slate-600'
+                            autoClose ? 'text-orange-500 dark:text-orange-400' : 'text-gray-300 dark:text-slate-600'
                           }`}
                         >
                           <Minimize2 className="w-3 h-3" />
@@ -352,16 +360,11 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    {groupTip}，
-                    <button
-                      onClick={handleExecute}
-                      disabled={!isRunning}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
-                    >
-                      执行命令
-                    </button>
-                  </div>
+
+                  {/* Sub-info: step count or single script name */}
+                  <span className="text-xs text-gray-500 dark:text-slate-400">{groupTip}</span>
+
+                  {/* Hint from config (e.g. 访问WebUI) */}
                   {cfg.hint && (
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-300 whitespace-pre-wrap">
                       Tips: {renderHint(cfg.hint, {

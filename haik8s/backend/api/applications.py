@@ -14,6 +14,7 @@ from datetime import datetime
 
 from db.database import get_session
 from db.models import User, Container, Image, ContainerStatus, ApplicationConfig, ConfigStatus, ApplicationDefinition
+from db.crud import update_container
 from k8s_service.pods import delete_pod, create_app_pod, get_pod_status
 from k8s_service.cache import get_pod_status_cached
 from k8s_service.services import delete_service
@@ -582,7 +583,18 @@ async def get_application_instances(
         # Get image info
         image = session.get(Image, container.image_id)
 
-        # k8s_status already fetched concurrently above
+        # Sync DB status from K8s status (mirrors logic in GET /containers/{id})
+        if container.status in (ContainerStatus.CREATING, ContainerStatus.RUNNING):
+            if k8s_status is None:
+                update_container(session, container.id, status=ContainerStatus.STOPPED)
+                container.status = ContainerStatus.STOPPED
+            elif k8s_status == "Running" and container.status != ContainerStatus.RUNNING:
+                update_container(session, container.id, status=ContainerStatus.RUNNING)
+                container.status = ContainerStatus.RUNNING
+            elif k8s_status == "Failed":
+                update_container(session, container.id, status=ContainerStatus.FAILED)
+                container.status = ContainerStatus.FAILED
+            # Pending → keep CREATING
 
         ssh_command = None
         ssh_user = None
