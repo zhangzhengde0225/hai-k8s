@@ -13,6 +13,7 @@ export default function AppService() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, updateUser } = useAuthStore();
+  const clusterMissing = !!(user && (!user.cluster_username || user.cluster_uid == null || user.cluster_gid == null || !user.cluster_home_dir));
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -316,7 +317,9 @@ export default function AppService() {
                   <>
                     <button
                       onClick={() => handleLaunchInstance(app)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs md:text-sm"
+                      disabled={clusterMissing}
+                      title={clusterMissing ? '请先开通 HAI 算力集群账号' : undefined}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Play size={14} className="md:w-4 md:h-4" />
                       <span className="whitespace-nowrap">{t('launch')}</span>

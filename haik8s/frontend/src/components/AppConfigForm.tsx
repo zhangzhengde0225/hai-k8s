@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Save, X, Eye, EyeOff } from 'lucide-react';
+import { Save, X, Eye, EyeOff, TriangleAlert } from 'lucide-react';
 import { useAuthStore } from '../auth/AuthContext';
 import client from '../api/client';
 import type { Image, SaveConfigData, VolumeMountConfig, IPAllocation } from '../types';
@@ -35,6 +35,7 @@ interface Application {
   max_cpu?: number | null;
   max_memory?: number | null;
   max_gpu?: number | null;
+  available_image_ids?: number[];
 }
 
 interface AppConfigFormProps {
@@ -158,10 +159,18 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
     });
   }, [application.config, application.defaultImage]);
 
-  // Filter images by active tab
+  // Filter images by active tab, then further restrict to application's available_image_ids
   const filteredImages = useMemo(() => {
     return images.filter(img => categorizeImage(img) === activeTab);
   }, [images, activeTab]);
+
+  // When admin has configured specific images for this app, show only those (bypass tabs)
+  const availableImages = useMemo(() => {
+    if (application.available_image_ids && application.available_image_ids.length > 0) {
+      return images.filter(img => application.available_image_ids!.includes(img.id));
+    }
+    return null; // null = use tab UI
+  }, [images, application.available_image_ids]);
 
   // Auto-generate storage path when image is selected or application changes (only for new configs)
   useEffect(() => {
@@ -195,11 +204,6 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
 
   // Fetch user system information (uid, gid, home directory) from backend
   useEffect(() => {
-    // Only fetch if not already loaded from existing config
-    if (application.config?.user_uid) {
-      return;
-    }
-
     client.get('/users/me').then((res) => {
       const u = res.data;
       if (u.cluster_uid != null) setUserUid(u.cluster_uid);
@@ -345,6 +349,11 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
       return;
     }
 
+    if (syncUser && (userUid === null || userGid === null)) {
+      toast.error('请先开通 HAI 算力集群账号后再保存配置');
+      return;
+    }
+
     setSaving(true);
     try {
       await onSaveConfig({
@@ -397,98 +406,140 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
           {t('imageSelection')}
         </label>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200 dark:border-slate-700 mb-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('app')}
-            className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
-              activeTab === 'app'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
-                : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            {t('appImages')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('system')}
-            className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
-              activeTab === 'system'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
-                : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            {t('systemImages')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('custom')}
-            className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
-              activeTab === 'custom'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
-                : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            {t('customImages')}
-          </button>
-        </div>
-
-        {/* Image Selection (Radio List) */}
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {filteredImages.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-slate-400 py-2">
-              暂无可用镜像
-            </p>
-          ) : (
-            filteredImages.map((img) => (
-              <label
-                key={img.id}
-                className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
-                  selectedImageId === img.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-slate-800'
+        {availableImages !== null ? (
+          /* Admin has configured specific images: flat list, no tabs */
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {availableImages.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-slate-400 py-2">暂无可用镜像</p>
+            ) : (
+              availableImages.map((img) => (
+                <label
+                  key={img.id}
+                  className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedImageId === img.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-300 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="image"
+                      value={img.id}
+                      checked={selectedImageId === img.id}
+                      onChange={(e) => setSelectedImageId(Number(e.target.value))}
+                      className="mt-1 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-gray-900 dark:text-white">{img.name}</span>
+                        {img.version && (
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded">
+                            {img.version}
+                          </span>
+                        )}
+                        {img.gpu_required && (
+                          <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                            GPU
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 ml-1 text-xs text-gray-500 dark:text-slate-400 font-mono">{img.registry_url}</div>
+                      {img.description && (
+                        <div className="mt-1 ml-1 text-xs text-gray-600 dark:text-slate-400">{img.description}</div>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+        ) : (
+          /* No restriction: tab UI showing all images */
+          <>
+            <div className="flex border-b border-gray-200 dark:border-slate-700 mb-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab('app')}
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
+                  activeTab === 'app'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
+                    : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="radio"
-                    name="image"
-                    value={img.id}
-                    checked={selectedImageId === img.id}
-                    onChange={(e) => setSelectedImageId(Number(e.target.value))}
-                    className="mt-1 flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-gray-900 dark:text-white">
-                        {img.name}
-                      </span>
-                      {img.version && (
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded">
-                          {img.version}
-                        </span>
-                      )}
-                      {img.gpu_required && (
-                        <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
-                          GPU
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 ml-1 text-xs text-gray-500 dark:text-slate-400 font-mono">
-                      {img.registry_url}
-                    </div>
-                    {img.description && (
-                      <div className="mt-1 ml-1 text-xs text-gray-600 dark:text-slate-400">
-                        {img.description}
+                {t('appImages')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('system')}
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
+                  activeTab === 'system'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
+                    : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {t('systemImages')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('custom')}
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm border-b-2 transition-colors ${
+                  activeTab === 'custom'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-medium'
+                    : 'border-transparent text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {t('customImages')}
+              </button>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {filteredImages.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-slate-400 py-2">暂无可用镜像</p>
+              ) : (
+                filteredImages.map((img) => (
+                  <label
+                    key={img.id}
+                    className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedImageId === img.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-300 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="image"
+                        value={img.id}
+                        checked={selectedImageId === img.id}
+                        onChange={(e) => setSelectedImageId(Number(e.target.value))}
+                        className="mt-1 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-900 dark:text-white">{img.name}</span>
+                          {img.version && (
+                            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded">
+                              {img.version}
+                            </span>
+                          )}
+                          {img.gpu_required && (
+                            <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                              GPU
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 ml-1 text-xs text-gray-500 dark:text-slate-400 font-mono">{img.registry_url}</div>
+                        {img.description && (
+                          <div className="mt-1 ml-1 text-xs text-gray-600 dark:text-slate-400">{img.description}</div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </label>
-            ))
-          )}
-        </div>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Section 2: Compute Resources */}
@@ -638,6 +689,24 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
 
         {syncUser && (
           <div className="space-y-3 pl-6 border-l-2 border-blue-200 dark:border-blue-800 mt-3">
+            {/* Warning: cluster account not activated */}
+            {(userUid === null || userGid === null) && (
+              <div className="flex items-start gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800 dark:border-yellow-600/50 dark:bg-yellow-900/20 dark:text-yellow-300">
+                <TriangleAlert size={14} className="mt-0.5 flex-shrink-0" />
+                <span>
+                  您尚未开通 HAI 算力集群账号，无法使用同步用户到容器功能，请前往{' '}
+                  <a
+                    href="https://ai.ihep.ac.cn/#/computing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium underline underline-offset-2 hover:text-yellow-900 dark:hover:text-yellow-200"
+                  >
+                    HAI平台-算力
+                  </a>
+                  {' '}查看和开通。
+                </span>
+              </div>
+            )}
             {/* User Info Display (Read-only) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -886,10 +955,16 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
 
       {/* Action Buttons */}
       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
+        {syncUser && (userUid === null || userGid === null) && (
+          <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-3">
+            请先开通 HAI 算力集群账号，再保存配置。
+          </p>
+        )}
         <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || (syncUser && (userUid === null || userGid === null))}
+          title={syncUser && (userUid === null || userGid === null) ? '请先开通 HAI 算力集群账号' : undefined}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save size={18} />

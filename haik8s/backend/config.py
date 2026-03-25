@@ -28,6 +28,7 @@ class Config:
     DEFAULT_ADMIN_EMAIL: str = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@haik8s.local")
 
     # IHEP SSO
+    SSO_STATE_SECRET: str = os.getenv("SSO_STATE_SECRET", "")  # fallback to JWT_SECRET_KEY if empty
     IHEP_SSO_CLIENT_ID: str = os.getenv("IHEP_SSO_CLIENT_ID", "")
     IHEP_SSO_CLIENT_SECRET: str = os.getenv("IHEP_SSO_CLIENT_SECRET", "")
     IHEP_SSO_AUTHORIZE_URL: str = os.getenv("IHEP_SSO_AUTHORIZE_URL", "https://login.ihep.ac.cn/oauth2/authorize")

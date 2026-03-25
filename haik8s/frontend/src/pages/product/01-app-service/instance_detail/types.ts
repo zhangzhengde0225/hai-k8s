@@ -57,6 +57,7 @@ export interface TabConfig {
   i18nKey: string;
   icon: React.ReactNode;
   enabled: (appId: string, status: string) => boolean;
+  visible?: boolean;
 }
 
 // Props for application-specific details components

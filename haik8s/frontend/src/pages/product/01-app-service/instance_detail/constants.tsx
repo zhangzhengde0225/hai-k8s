@@ -49,6 +49,7 @@ export const TAB_CONFIGS: TabConfig[] = [
     i18nKey: 'webTerminal',
     icon: <Terminal size={13} />,
     enabled: (_, status) => status === 'running',
+    visible: false,
   },
   {
     key: 'container-logs',

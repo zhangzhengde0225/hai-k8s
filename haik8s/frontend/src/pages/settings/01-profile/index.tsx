@@ -17,6 +17,7 @@ export default function Profile() {
   const [error, setError] = useState(false);
   const [ipAllocation, setIpAllocation] = useState<IPAllocation | null>(null);
   const [ipLoading, setIpLoading] = useState(false);
+  const [syncClusterLoading, setSyncClusterLoading] = useState(false);
 
   const fetchUser = async () => {
     setLoading(true);
@@ -61,6 +62,19 @@ export default function Profile() {
       toast.error(e.response?.data?.detail || t('ipReleaseFailed'));
     } finally {
       setIpLoading(false);
+    }
+  };
+
+  const handleSyncClusterInfo = async () => {
+    setSyncClusterLoading(true);
+    try {
+      const res = await client.post<User>('/users/me/sync-cluster-info');
+      setUser(res.data);
+      toast.success(t('syncClusterInfoSuccess'));
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || t('syncClusterInfoFailed'));
+    } finally {
+      setSyncClusterLoading(false);
     }
   };
 
@@ -143,7 +157,19 @@ export default function Profile() {
         </Card>
 
         {/* 集群信息 */}
-        <Card title={t('clusterInfo')}>
+        <Card
+          title={t('clusterInfo')}
+          action={
+            <button
+              onClick={handleSyncClusterInfo}
+              disabled={syncClusterLoading}
+              className="flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={syncClusterLoading ? 'animate-spin' : ''} />
+              {syncClusterLoading ? t('syncingClusterInfo') : t('syncClusterInfo')}
+            </button>
+          }
+        >
           <Row label={t('clusterUsername')} value={user.cluster_username || <NotSet />} />
           <Row label={t('clusterUid')} value={user.cluster_uid != null ? String(user.cluster_uid) : <NotSet />} />
           <Row label={t('clusterGid')} value={user.cluster_gid != null ? String(user.cluster_gid) : <NotSet />} />
@@ -209,10 +235,13 @@ export default function Profile() {
 
 /* ---- sub-components ---- */
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-4 md:p-6">
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
+        {action}
+      </div>
       <dl className="divide-y divide-gray-100 dark:divide-slate-700">{children}</dl>
     </div>
   );

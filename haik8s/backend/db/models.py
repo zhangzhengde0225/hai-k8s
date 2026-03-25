@@ -63,9 +63,10 @@ class User(SQLModel, table=True):
 
 class Image(SQLModel, table=True):
     __tablename__ = "images"
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_image_name_version"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(unique=True, index=True)
+    name: str = Field(index=True)
     registry_url: str
     description: Optional[str] = None
     default_cmd: Optional[str] = Field(default="/bin/bash")

@@ -27,7 +27,7 @@ import { TAB_CONFIGS } from './constants';
 import { StatusDot } from './components/StatusDot';
 import { StatusBadge } from './components/StatusBadge';
 import { ServerOverview } from './components/tab1_ServerOverview';
-import { WebTerminal } from './components/tab3_WebTerminal';
+import { WebTerminal } from './tabs/web_terminal';
 import { ContainerLogs } from './components/tab4_ContainerLogs';
 import { ContainerEvents } from './components/tab5_ContainerEvents';
 import { CommandExecutor } from './components/CommandExecutor';
@@ -48,7 +48,8 @@ export default function AppDetails() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   // Initialize from URL params synchronously
-  const initialTab: AppDetailTab = (searchParams.get('tab') as AppDetailTab) || 'server-overview';
+  const rawTab = (searchParams.get('tab') as AppDetailTab) || 'server-overview';
+  const initialTab: AppDetailTab = rawTab === 'web-terminal' ? 'server-overview' : rawTab;
   const initialInstanceId = searchParams.get('instanceId');
   const initialSelectedId = initialInstanceId ? parseInt(initialInstanceId, 10) : null;
 
@@ -517,7 +518,7 @@ export default function AppDetails() {
                   <div ref={detailRef} className="border-t border-gray-200 dark:border-slate-700/50 px-4 pb-4">
                     {/* Tabs */}
                     <div className="flex gap-1 mt-3 mb-4 border-b border-gray-200 dark:border-slate-700/50 overflow-x-auto">
-                      {TAB_CONFIGS.map((tab) => {
+                      {TAB_CONFIGS.filter((tab) => tab.visible !== false).map((tab) => {
                         const isEnabled = tab.enabled(appId || '', inst.status);
                         const isActive = activeTab === tab.key;
 

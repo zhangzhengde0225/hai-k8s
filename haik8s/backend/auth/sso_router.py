@@ -2,8 +2,12 @@
 IHEP SSO router for HAI-K8S
 
 Ported from BubbleTracker_V3
-Author: Zhengde ZHANG
+Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
 """
+import hmac
+import hashlib
+import time
+import base64
 import secrets
 from datetime import timedelta
 from typing import Optional
@@ -21,8 +25,38 @@ from auth.security import create_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# In-memory CSRF state storage
-sso_states: dict[str, bool] = {}
+
+def _get_state_secret() -> str:
+    return Config.SSO_STATE_SECRET or Config.JWT_SECRET_KEY
+
+
+def _make_state() -> str:
+    """生成含时间戳的 HMAC 签名 state token，无需服务端存储"""
+    secret = _get_state_secret()
+    nonce = secrets.token_urlsafe(16)
+    ts = str(int(time.time()))
+    payload = f"{nonce}.{ts}"
+    sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f"{payload}.{sig}".encode()).decode().rstrip("=")
+
+
+def _verify_state(state: str, max_age: int = 600) -> bool:
+    """验证 state 签名及有效期（默认10分钟）"""
+    secret = _get_state_secret()
+    try:
+        # 补回 base64 padding
+        padding = 4 - len(state) % 4
+        decoded = base64.urlsafe_b64decode(state + "=" * (padding % 4)).decode()
+        nonce, ts, sig = decoded.rsplit(".", 2)
+        payload = f"{nonce}.{ts}"
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return False
+        if int(time.time()) - int(ts) > max_age:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 @router.get("/login/sso")
@@ -34,8 +68,7 @@ async def sso_login():
             detail="IHEP SSO is not configured. Please set IHEP_SSO_CLIENT_ID and IHEP_SSO_CLIENT_SECRET.",
         )
 
-    state = secrets.token_urlsafe(32)
-    sso_states[state] = True
+    state = _make_state()
 
     params = {
         "client_id": Config.IHEP_SSO_CLIENT_ID,
@@ -59,12 +92,11 @@ async def sso_callback(
     """
     # Verify CSRF state if provided
     if state:
-        if state not in sso_states:
+        if not _verify_state(state):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid state parameter",
             )
-        del sso_states[state]
 
     try:
         async with httpx.AsyncClient() as client:
@@ -125,6 +157,7 @@ async def sso_callback(
             detail="Missing required fields in SSO response",
         )
     
+    # 从数据库中查找
     user = get_user_by_sso_id(session, sso_id)
 
     # Fetch cluster info (sn/uid/gid/home_dir) — non-critical

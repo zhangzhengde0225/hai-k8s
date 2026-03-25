@@ -13,7 +13,7 @@ from db.models import (
 
 logger = logging.getLogger(__name__)
 
-LOCAL_USER_ID_START = 10000  # 本地用户 id 起始值
+LOCAL_USER_ID_START = 10000000  # 本地用户 id 起始值
 
 
 def _next_local_user_id(session: Session) -> int:
@@ -82,7 +82,7 @@ def create_local_user(
     full_name: Optional[str] = None,
     role: UserRole = UserRole.USER,
 ) -> User:
-    """Create a local user with password, id starts from LOCAL_USER_ID_START (10000)"""
+    """Create a local user with password, id starts from LOCAL_USER_ID_START (10000000)"""
     user = User(
         id=_next_local_user_id(session),
         username=username,

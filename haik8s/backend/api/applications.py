@@ -266,6 +266,15 @@ async def list_applications(
             endpoint = f"http://{user_config.bound_ip}"
 
         # Build response
+        # Parse available_image_ids from available_images JSON
+        available_image_ids = []
+        if app_def.available_images:
+            try:
+                available_imgs = json.loads(app_def.available_images)
+                available_image_ids = [img['image_id'] for img in available_imgs if img.get('image_id')]
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass
+
         app_data = {
             'id': app_id,
             'name': app_def.name,
@@ -283,6 +292,7 @@ async def list_applications(
             'max_cpu': app_def.max_cpu,
             'max_memory': app_def.max_memory,
             'max_gpu': app_def.max_gpu,
+            'available_image_ids': available_image_ids,
         }
 
         # Add config info if exists

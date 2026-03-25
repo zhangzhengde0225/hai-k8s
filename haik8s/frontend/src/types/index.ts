@@ -113,6 +113,7 @@ export interface Application {
   max_cpu?: number | null;
   max_memory?: number | null;
   max_gpu?: number | null;
+  available_image_ids?: number[];
   // Configuration information
   config?: {
     id: number;
@@ -283,6 +284,7 @@ export interface ApplicationDefinition {
 }
 
 export interface AvailableImage {
+  image_id?: number;
   tag: string;
   registry_url: string;
   description: string;

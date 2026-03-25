@@ -32,6 +32,7 @@ export default function OpenClawDetails({ appId, appInfo, instance }: AppDetails
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [configDirty, setConfigDirty] = useState(false);
 
   const loadConfig = async () => {
     if (instance.status !== 'running') {
@@ -96,7 +97,7 @@ export default function OpenClawDetails({ appId, appInfo, instance }: AppDetails
 
   return (
     <div className="space-y-4">
-      <UsageGuide instance={instance} appInfo={appInfo} onAllStepsComplete={() => {
+      <UsageGuide instance={instance} appInfo={appInfo} configDirty={configDirty} onAllStepsComplete={() => {
         setRefreshTrigger((v) => v + 1);
         reloadConfigSilent();
       }} />
@@ -107,6 +108,7 @@ export default function OpenClawDetails({ appId, appInfo, instance }: AppDetails
         appId={appId}
         instance={instance}
         onConfigUpdate={loadConfig}
+        onDirtyChange={setConfigDirty}
       />
       <ChannelConfiguration
         config={config}

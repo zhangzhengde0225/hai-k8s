@@ -33,6 +33,14 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserDetailResponse(UserResponse):
+    """管理员查看的用户完整信息（含敏感字段脱敏）"""
+
+    sso_id: Optional[str] = Field(None, description="SSO用户ID")
+    has_password: bool = Field(False, description="是否设置了本地密码")
+    api_key_masked: Optional[str] = Field(None, description="HepAI API Key（脱敏）")
+
+
 class UserUpdateRequest(BaseModel):
     """管理员更新用户信息的请求（所有字段可选）"""
 

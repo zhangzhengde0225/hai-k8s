@@ -1,19 +1,24 @@
 // 管理员-用户管理页面：查看所有用户列表，支持编辑用户角色、CPU/内存/GPU配额及激活状态。
+// Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
 import { useEffect, useState } from 'react';
 import client from '../../../api/client';
 import type { User } from '../../../types';
 import toast from 'react-hot-toast';
+import UserStats from './static';
+import UserDetails from './user_details';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<number | null>(null);
   const [editData, setEditData] = useState<Record<string, any>>({});
+  const [showStats, setShowStats] = useState(false);
+  const [detailsUserId, setDetailsUserId] = useState<number | null>(null);
 
   const fetchUsers = () => {
     client
       .get('/admin/users')
-      .then((res) => setUsers(res.data))
+      .then((res) => setUsers([...res.data].sort((a: User, b: User) => a.id - b.id)))
       .catch(() => toast.error('Failed to load users'))
       .finally(() => setLoading(false));
   };
@@ -48,12 +53,25 @@ export default function AdminUsers() {
 
   return (
     <div>
-      <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-4 md:mb-6">Users</h2>
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Users</h2>
+        <button
+          onClick={() => setShowStats(true)}
+          className="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+        >
+          统计
+        </button>
+      </div>
+      {showStats && <UserStats users={users} onClose={() => setShowStats(false)} />}
+      {detailsUserId !== null && (
+        <UserDetails userId={detailsUserId} onClose={() => setDetailsUserId(null)} />
+      )}
       <div className="bg-white dark:bg-slate-900 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-slate-950 text-left text-gray-500 dark:text-slate-400 uppercase text-xs">
+                <th className="px-3 md:px-4 py-3 whitespace-nowrap">ID</th>
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Username</th>
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Email</th>
                 <th className="px-3 md:px-4 py-3 whitespace-nowrap">Role</th>
@@ -68,6 +86,7 @@ export default function AdminUsers() {
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {users.map((u) => (
               <tr key={u.id}>
+                <td className="px-4 py-3 text-gray-400 dark:text-slate-500">{u.id}</td>
                 <td className="px-4 py-3 font-medium dark:text-white">{u.username}</td>
                 <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{u.email}</td>
                 <td className="px-4 py-3">
@@ -180,12 +199,20 @@ export default function AdminUsers() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => startEdit(u)}
-                      className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => startEdit(u)}
+                        className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDetailsUserId(u.id)}
+                        className="text-xs px-2 py-1 text-gray-600 dark:text-slate-400 hover:underline cursor-pointer"
+                      >
+                        Details
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>

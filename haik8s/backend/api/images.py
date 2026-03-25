@@ -54,8 +54,10 @@ async def create_image_endpoint(
     session: Session = Depends(get_session),
 ):
     """Create a new image (admin only)"""
-    # Check if image name already exists
-    existing = session.exec(select(Image).where(Image.name == req.name)).first()
+    # Check if image name+version already exists
+    existing = session.exec(
+        select(Image).where(Image.name == req.name, Image.version == req.version)
+    ).first()
     if existing:
         if existing.is_active:
             raise HTTPException(status_code=400, detail="Image name already exists")
@@ -108,9 +110,13 @@ async def update_image(
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    # Check name uniqueness if changing name
-    if req.name and req.name != image.name:
-        existing = session.exec(select(Image).where(Image.name == req.name)).first()
+    # Check name+version uniqueness if changing name or version
+    check_name = req.name if req.name is not None else image.name
+    check_version = req.version if req.version is not None else image.version
+    if check_name != image.name or check_version != image.version:
+        existing = session.exec(
+            select(Image).where(Image.name == check_name, Image.version == check_version)
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Image name already exists")
 

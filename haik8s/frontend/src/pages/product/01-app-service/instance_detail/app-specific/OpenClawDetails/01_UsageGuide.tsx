@@ -23,6 +23,7 @@ interface Script {
 interface Props {
   instance: AppInstance;
   appInfo: AppInfo;
+  configDirty?: boolean;
   onAllStepsComplete?: () => void;
 }
 
@@ -119,7 +120,7 @@ function renderTextWithVars(text: string, vars: Record<string, VarDef>, startKey
   });
 }
 
-export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Props) {
+export default function UsageGuide({ instance, appInfo, configDirty, onAllStepsComplete }: Props) {
   const [showCommandExecutor, setShowCommandExecutor] = useState(false);
   const [showMultiStepExecutor, setShowMultiStepExecutor] = useState(false);
   const [commandToExecute, setCommandToExecute] = useState('');
@@ -252,6 +253,12 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
           </div>
         )}
 
+        {configDirty && (
+          <div className="mb-4 p-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded text-xs text-orange-800 dark:text-orange-300">
+            提示: 有未保存的配置，请先保存后再启动
+          </div>
+        )}
+
         <div className="flex items-start justify-between gap-2">
           {groupNums.map((g, groupIndex) => {
             const scripts = scriptsByGroup(g);
@@ -289,7 +296,7 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
               // Substitute known template variables in command
               const needsHepaiKey = scripts.some((s) => s.command.includes('{{API_KEY_OF_HEPAI}}'));
               if (needsHepaiKey && !fullKey) {
-                toast.error('未获取到 HepAI API Key，请在个人设置中配置后重试');
+                toast.error('正在从HAI平台获取专属API Key，请稍等后重试');
                 return;
               }
               const resolveScript = (s: Script): Script =>
@@ -327,12 +334,13 @@ export default function UsageGuide({ instance, appInfo, onAllStepsComplete }: Pr
                       <button
                         type="button"
                         onClick={handleExecute}
-                        disabled={!isRunning}
+                        disabled={!isRunning || !!configDirty}
                         className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow transition-all ${
                           done
                             ? 'bg-green-500 hover:bg-green-600 text-white'
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                         } disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none`}
+                        title={configDirty ? '有未保存的配置，请先保存' : undefined}
                       >
                         {groupTitle}
                       </button>

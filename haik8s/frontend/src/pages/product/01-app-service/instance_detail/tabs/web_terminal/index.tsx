@@ -1,4 +1,6 @@
-import TtyTerminal from '../../../../../components/Terminal';
+// 网页终端Tab组件，提供基于WebSocket的浏览器内SSH终端功能
+// Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
+import TtyTerminal from '../../../../../../components/Terminal';
 
 interface Props {
   containerId: number;

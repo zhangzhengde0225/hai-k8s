@@ -24,7 +24,7 @@ from db.crud import (
 )
 from auth.dependencies import require_role
 from auth.security import verify_password, create_access_token
-from schemas.user import UserResponse, UserUpdateRequest
+from schemas.user import UserResponse, UserUpdateRequest, UserDetailResponse
 from schemas.container import ContainerResponse
 from k8s_service.client import get_core_v1
 from k8s_service.pods import (
@@ -109,6 +109,53 @@ async def admin_update_user(
         gpu_used=usage["gpu_used"],
         created_at=user.created_at,
         last_login_at=user.last_login_at,
+    )
+
+
+@router.get("/users/{user_id}", response_model=UserDetailResponse)
+async def admin_get_user(
+    user_id: int,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Get full user details (admin only)"""
+    user = get_user_by_id(session, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    usage = get_user_resource_usage(session, user.id)
+
+    key = user.api_key_of_hepai
+    if key and len(key) > 8:
+        api_key_masked = key[:4] + "****" + key[-4:]
+    elif key:
+        api_key_masked = "*" * len(key)
+    else:
+        api_key_masked = None
+
+    return UserDetailResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role.value if isinstance(user.role, UserRole) else user.role,
+        auth_provider=user.auth_provider.value if user.auth_provider else None,
+        is_active=user.is_active,
+        cpu_quota=user.cpu_quota,
+        memory_quota=user.memory_quota,
+        gpu_quota=user.gpu_quota,
+        cpu_used=usage["cpu_used"],
+        memory_used=usage["memory_used"],
+        gpu_used=usage["gpu_used"],
+        created_at=user.created_at,
+        last_login_at=user.last_login_at,
+        cluster_username=user.cluster_username,
+        cluster_uid=user.cluster_uid,
+        cluster_gid=user.cluster_gid,
+        cluster_home_dir=user.cluster_home_dir,
+        sso_id=user.sso_id,
+        has_password=bool(user.password_hash),
+        api_key_masked=api_key_masked,
     )
 
 

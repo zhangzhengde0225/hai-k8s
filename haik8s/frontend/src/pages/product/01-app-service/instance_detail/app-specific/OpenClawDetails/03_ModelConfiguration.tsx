@@ -1,6 +1,6 @@
 // 模型配置：以 Tab 形式展示不同 Provider，支持从容器读取配置、Provider 增删、模型添加/删除。作者：Zhengde Zhang (zhangzhengde0225@gmail.com)
 import { useState, useEffect } from 'react';
-import { Cpu, RefreshCw, Eye, EyeOff, Plus, Trash2, Save, X, Shield } from 'lucide-react';
+import { Cpu, RefreshCw, Eye, EyeOff, Plus, Trash2, Save, X, Shield, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { AppInstance } from '../../types';
 import client from '../../../../../../api/client';
@@ -16,9 +16,10 @@ interface Props {
   appId: string;
   instance: AppInstance;
   onConfigUpdate: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export default function ModelConfiguration({ config, instanceId, appId, instance, onConfigUpdate }: Props) {
+export default function ModelConfiguration({ config, instanceId, appId, instance, onConfigUpdate, onDirtyChange }: Props) {
   const [showApiKey, setShowApiKey] = useState<Record<string, boolean>>({});
   const [reading, setReading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,36 @@ export default function ModelConfiguration({ config, instanceId, appId, instance
   const [newProviderApiKey, setNewProviderApiKey] = useState('');
   const [newProviderApi, setNewProviderApi] = useState('openai');
 
+  // Edit existing provider state
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [editBaseUrl, setEditBaseUrl] = useState('');
+  const [editApiKey, setEditApiKey] = useState('');
+
+  const startEditProvider = (name: string) => {
+    const p = providers[name];
+    setEditingProvider(name);
+    setEditBaseUrl(p?.baseUrl ?? '');
+    setEditApiKey(p?.apiKey ?? '');
+    onDirtyChange?.(true);
+  };
+
+  const cancelEditProvider = () => {
+    setEditingProvider(null);
+    onDirtyChange?.(false);
+  };
+
+  const handleSaveProviderEdit = async () => {
+    if (!editBaseUrl.trim()) return;
+    const provider = providers[editingProvider!];
+    const updatedProviders = {
+      ...providers,
+      [editingProvider!]: { ...provider, baseUrl: editBaseUrl.trim(), apiKey: editApiKey.trim() },
+    };
+    await saveProviders(updatedProviders);
+    setEditingProvider(null);
+    onDirtyChange?.(false);
+  };
+
   const providers = config?.models?.providers || {};
   const primaryModel = config?.agents?.defaults?.model?.primary || '';
   const providerNames = Object.keys(providers);
@@ -42,6 +73,8 @@ export default function ModelConfiguration({ config, instanceId, appId, instance
 
   useEffect(() => {
     setActiveTab(providerNames[0] || '');
+    setEditingProvider(null);
+    onDirtyChange?.(false);
   }, [config]);
 
   const handleReadFromContainer = async () => {
@@ -221,7 +254,7 @@ export default function ModelConfiguration({ config, instanceId, appId, instance
         {providerNames.map((name) => (
           <div key={name} className="relative group/tab flex items-end">
             <button
-              onClick={() => { setActiveTab(name); setShowAddForm(false); setShowAddProviderForm(false); }}
+              onClick={() => { setActiveTab(name); setShowAddForm(false); setShowAddProviderForm(false); cancelEditProvider(); }}
               className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeTab === name
                   ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
@@ -305,26 +338,84 @@ export default function ModelConfiguration({ config, instanceId, appId, instance
         <div className="space-y-3">
           {/* Provider info */}
           <div className="space-y-2 text-sm">
-            <div className="flex items-start justify-between">
-              <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">Base URL:</span>
-              <code className="font-mono text-gray-900 dark:text-white text-xs break-all flex-1 text-right">
-                {activeProvider.baseUrl}
-              </code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">API Key:</span>
-              <div className="flex items-center gap-2">
-                <code className="font-mono text-gray-900 dark:text-white text-xs">
-                  {showApiKey[activeTab] ? activeProvider.apiKey : '••••••••••••'}
-                </code>
-                <button
-                  onClick={() => setShowApiKey((prev) => ({ ...prev, [activeTab]: !prev[activeTab] }))}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition-colors"
-                >
-                  {showApiKey[activeTab] ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
+            {editingProvider === activeTab ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">Base URL <span className="text-red-500">*</span>:</span>
+                  <input
+                    type="text"
+                    value={editBaseUrl}
+                    onChange={(e) => setEditBaseUrl(e.target.value)}
+                    placeholder="Base URL（必填）"
+                    className={`flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                      !editBaseUrl.trim() ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-slate-600'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">API Key:</span>
+                  <input
+                    type="text"
+                    value={editApiKey}
+                    onChange={(e) => setEditApiKey(e.target.value)}
+                    placeholder="API Key（可选）"
+                    className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                {!editBaseUrl.trim() && (
+                  <p className="text-xs text-red-500 dark:text-red-400">Base URL 不能为空</p>
+                )}
+                <div className="flex gap-2 justify-end pt-1">
+                  <button
+                    onClick={cancelEditProvider}
+                    className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSaveProviderEdit}
+                    disabled={!editBaseUrl.trim() || saving}
+                    className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded disabled:opacity-50 transition-colors"
+                  >
+                    <Save size={11} />
+                    保存
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start justify-between">
+                  <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">Base URL:</span>
+                  <code className="font-mono text-gray-900 dark:text-white text-xs break-all flex-1 text-right">
+                    {activeProvider.baseUrl}
+                  </code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400 w-24 flex-shrink-0">API Key:</span>
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-gray-900 dark:text-white text-xs">
+                      {showApiKey[activeTab] ? activeProvider.apiKey : '••••••••••••'}
+                    </code>
+                    <button
+                      onClick={() => setShowApiKey((prev) => ({ ...prev, [activeTab]: !prev[activeTab] }))}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition-colors"
+                    >
+                      {showApiKey[activeTab] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => startEditProvider(activeTab)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    title="编辑 Provider 信息"
+                  >
+                    <Edit2 size={12} />
+                    编辑
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Model List */}

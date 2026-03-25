@@ -1,7 +1,9 @@
 // 应用基本配置子组件：编辑应用ID、名称、版本、镜像前缀、描述、默认副本数、推荐资源配额（CPU/内存/GPU）、镜像配置（多版本）及可见性；OpenClaw应用额外支持模型配置模板。
 // Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
-import { Plus, Trash2 } from 'lucide-react';
-import type { ApplicationDefinition, AvailableImage } from '../../../types';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Trash2 } from 'lucide-react';
+import type { ApplicationDefinition, AvailableImage, Image } from '../../../../types';
+import client from '../../../../../api/client';
 
 interface Props {
   application: ApplicationDefinition;
@@ -11,41 +13,64 @@ interface Props {
 }
 
 export default function BasicConfig({ application, editData, setEditData, isEditing }: Props) {
+  const [allImages, setAllImages] = useState<Image[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    client.get('/images').then((res) => setAllImages(res.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const updateField = (field: string, value: any) => {
     setEditData({ ...editData, [field]: value });
   };
 
   const images: AvailableImage[] = editData.available_images || [];
 
-  const addImage = () => {
-    const newImage: AvailableImage = {
-      tag: '',
-      registry_url: '',
-      description: '',
-      is_default: images.length === 0,
-    };
-    updateField('available_images', [...images, newImage]);
+  const addImageFromRegistry = (img: Image) => {
+    updateField('available_images', [
+      ...images,
+      {
+        image_id: img.id,
+        tag: img.version || img.name,
+        registry_url: img.registry_url,
+        description: img.description || '',
+        is_default: images.length === 0,
+      } as AvailableImage,
+    ]);
+    setShowPicker(false);
   };
 
-  const updateImage = (index: number, field: keyof AvailableImage, value: any) => {
-    const updated = images.map((img, i) => {
-      if (i !== index) {
-        // If setting is_default to true, clear others
-        return field === 'is_default' && value ? { ...img, is_default: false } : img;
-      }
-      return { ...img, [field]: value };
-    });
-    updateField('available_images', updated);
+  const setDefault = (index: number) => {
+    updateField(
+      'available_images',
+      images.map((img, i) => ({ ...img, is_default: i === index }))
+    );
   };
 
   const removeImage = (index: number) => {
     const updated = images.filter((_, i) => i !== index);
-    // If removed image was default, set first remaining as default
     if (images[index].is_default && updated.length > 0) {
       updated[0] = { ...updated[0], is_default: true };
     }
     updateField('available_images', updated);
   };
+
+  const addedIds = new Set(images.map((i) => i.image_id).filter(Boolean));
+  const addedUrls = new Set(images.map((i) => i.registry_url));
+  const pickable = allImages.filter(
+    (img) => !addedIds.has(img.id) && !addedUrls.has(img.registry_url)
+  );
 
   return (
     <div className="space-y-6">
@@ -112,92 +137,102 @@ export default function BasicConfig({ application, editData, setEditData, isEdit
       </div>
 
       {/* Image Config */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">镜像配置</h3>
           {isEditing && (
-            <button
-              onClick={addImage}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-            >
-              <Plus size={12} />
-              添加版本
-            </button>
+            <div className="relative" ref={pickerRef}>
+              <button
+                onClick={() => setShowPicker((p) => !p)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                从镜像库添加
+                <ChevronDown size={12} />
+              </button>
+              {showPicker && (
+                <div className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                  {pickable.length === 0 ? (
+                    <p className="text-xs text-gray-400 dark:text-slate-500 px-3 py-4 text-center">
+                      没有可添加的镜像
+                    </p>
+                  ) : (
+                    pickable.map((img) => (
+                      <button
+                        key={img.id}
+                        onClick={() => addImageFromRegistry(img)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-100 dark:border-slate-700 last:border-0 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-900 dark:text-white">{img.name}</span>
+                          {img.version && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
+                              {img.version}
+                            </span>
+                          )}
+                          {img.gpu_required && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
+                              GPU
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate mt-0.5">
+                          {img.registry_url}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
+
         {images.length === 0 ? (
           <p className="text-xs text-gray-400 dark:text-slate-500 py-2">
-            暂无镜像版本，{isEditing ? '点击「添加版本」配置可用镜像。' : '请编辑后添加。'}
+            暂无镜像，{isEditing ? '点击「从镜像库添加」选择可用镜像。' : '请编辑后添加。'}
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {images.map((img, index) => (
               <div
                 key={index}
-                className="border border-gray-200 dark:border-slate-700 rounded-lg p-3 space-y-3"
+                className={`flex items-center gap-3 border rounded-lg px-3 py-2.5 transition-colors ${
+                  img.is_default
+                    ? 'border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10'
+                    : 'border-gray-200 dark:border-slate-700'
+                }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      id={`default_img_${index}`}
-                      name="default_image"
-                      checked={img.is_default}
-                      onChange={() => updateImage(index, 'is_default', true)}
-                      disabled={!isEditing}
-                      className="w-3.5 h-3.5 text-blue-600 disabled:cursor-not-allowed"
-                    />
-                    <label
-                      htmlFor={`default_img_${index}`}
-                      className="text-xs text-gray-600 dark:text-slate-400 cursor-pointer"
-                    >
-                      {img.is_default ? '默认版本' : '设为默认'}
-                    </label>
+                <input
+                  type="radio"
+                  checked={img.is_default}
+                  onChange={() => setDefault(index)}
+                  disabled={!isEditing}
+                  className="w-3.5 h-3.5 text-blue-600 disabled:cursor-not-allowed flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">{img.tag}</span>
+                    {img.is_default && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded">
+                        默认
+                      </span>
+                    )}
                   </div>
-                  {isEditing && (
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="p-1 text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                  <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate mt-0.5">
+                    {img.registry_url}
+                  </div>
+                  {img.description && (
+                    <div className="text-[11px] text-gray-400 dark:text-slate-500 mt-0.5">{img.description}</div>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">版本标签 *</label>
-                    <input
-                      type="text"
-                      value={img.tag}
-                      onChange={(e) => updateImage(index, 'tag', e.target.value)}
-                      disabled={!isEditing}
-                      placeholder="e.g., v1.0.0"
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">镜像地址 *</label>
-                    <input
-                      type="text"
-                      value={img.registry_url}
-                      onChange={(e) => updateImage(index, 'registry_url', e.target.value)}
-                      disabled={!isEditing}
-                      placeholder="e.g., harbor.ihep.ac.cn/hai/hai-openclaw:v1.0.0"
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-400">描述</label>
-                    <input
-                      type="text"
-                      value={img.description}
-                      onChange={(e) => updateImage(index, 'description', e.target.value)}
-                      disabled={!isEditing}
-                      placeholder="e.g., 稳定版"
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                </div>
+                {isEditing && (
+                  <button
+                    onClick={() => removeImage(index)}
+                    className="p-1 text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -310,4 +345,3 @@ export default function BasicConfig({ application, editData, setEditData, isEdit
     </div>
   );
 }
-

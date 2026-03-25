@@ -1,4 +1,5 @@
 // 管理员-应用配置编辑页面：编辑指定应用的完整配置，含基本信息配置（BasicConfig）和启动脚本配置（StartupConfig）两个标签页，支持未保存离开拦截。
+// Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -11,10 +12,10 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import client from '../../../api/client';
-import type { ApplicationDefinition } from '../../../types';
-import BasicConfig from './BasicConfig';
-import StartupConfig from './StartupConfig';
+import client from '../../../../api/client';
+import type { ApplicationDefinition } from '../../../../types';
+import BasicConfig from './tabs/BasicConfig';
+import StartupConfig from './tabs/StartupConfig';
 
 interface Props {
   isEditing?: boolean;

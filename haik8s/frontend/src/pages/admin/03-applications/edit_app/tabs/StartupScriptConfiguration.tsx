@@ -1,10 +1,12 @@
+// 启动脚本配置组件：管理应用启动脚本分组，支持脚本排序、启用/禁用、编辑、语法高亮（Python/Bash）及分组配置（auto_start、auto_close）。
+// Author: Zhengde Zhang (zhangzhengde0225@gmail.com)
 import { useState } from 'react';
 import { Terminal, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Save, X, FolderPlus, ToggleLeft, ToggleRight } from 'lucide-react';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-bash';
-import Drawer from '../../../components/Drawer';
+import Drawer from '../../../../../components/Drawer';
 
 export interface StartupScript {
   id: string;
