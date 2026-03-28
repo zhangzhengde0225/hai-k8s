@@ -28,6 +28,20 @@ models_config = {
                     "maxTokens": 8192
                 },
                 {
+                    "id": "openai/gpt-5.4-mini",
+                    "name": "GPT-5.4 Mini (HepAI)",
+                    "reasoning": False,
+                    "input": ["text","image"],
+                    "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                        },
+                    "contextWindow": 128000,
+                    "maxTokens": 8192
+                },
+                {
                     "id": "aliyun/qwen3-max",
                     "name": "Qwen 3 Max (HepAI)",
                     "reasoning": False,
@@ -94,7 +108,8 @@ agents_config = {
                 "hepai/deepseek-ai/deepseek-v3.2",
                 "hepai/aliyun/qwen3-max",
                 "hepai/anthropic/claude-haiku-4-5",
-                "hepai/minimax/minimax-m2.5-highspeed"
+                "hepai/minimax/minimax-m2.5-highspeed",
+                "hepai/openai/gpt-5.4-mini"
             ]
         },
         "models": {
@@ -104,7 +119,13 @@ agents_config = {
             "anthropic/claude-haiku-4-5": {"alias": "claude-haiku-4-5-hepai"},
             "minimax/minimax-m2.5-highspeed": {"alias": "minimax-m2.5-highspeed-hepai"}
         }
-    }
+    },
+    "imageModel": {
+        "primary": "hepai/openai/gpt-5.4-mini",
+        "fallbacks": [
+          "hepai_anthropic/anthropic/claude-haiku-4-5"
+        ]
+      }
 }
 
 # 2. 合并配置
@@ -148,6 +169,11 @@ else:  # 如果已有defaults，合并内部的模型配置
             else:
                 # 如果模型已存在，可以选择覆盖或保留原有别名，这里选择保留原有别名
                 pass
+    # 合并imageModel配置
+    if "imageModel" not in config["agents"]["defaults"]:
+        config["agents"]["defaults"]["imageModel"] = agents_config["imageModel"]
+    else:
+        pass  # 不变
 
 
 # 写入配置

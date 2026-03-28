@@ -1,6 +1,6 @@
 // 基础配置：WebUI访问地址、Gateway Token、重启网关等基础操作。作者：Zhengde Zhang (zhangzhengde0225@gmail.com)
 import { useState, useEffect } from 'react';
-import { Settings2, Globe, RefreshCw, Copy, Eye, EyeOff, HelpCircle, ChevronDown, ChevronRight, Smartphone, Check, Loader2, Key, Trash2 } from 'lucide-react';
+import { Settings2, Globe, RefreshCw, Copy, Eye, EyeOff, HelpCircle, ChevronDown, ChevronRight, Smartphone, Check, Loader2, Key, Trash2, Network } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { AppInstance } from '../../types';
 import { CommandExecutor } from '../../components/CommandExecutor';
@@ -466,7 +466,10 @@ export default function BasicConfiguration({ instance, refreshTrigger }: Props) 
 
             {/* OpenClaw 网关 */}
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
-              <span className="text-sm font-medium text-gray-900 dark:text-white">OpenClaw网关</span>
+              <div className="flex items-center gap-2">
+                <Network className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">OpenClaw网关</span>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setGatewayCommand('restart'); setShowCommandExecutor(true); }}
