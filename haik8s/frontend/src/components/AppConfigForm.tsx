@@ -340,19 +340,35 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
     }
   };
 
+  const cpuRemaining = (user?.cpu_quota ?? 0) - (user?.cpu_used ?? 0);
+  const memRemaining = (user?.memory_quota ?? 0) - (user?.memory_used ?? 0);
+  const gpuRemaining = (user?.gpu_quota ?? 0) - (user?.gpu_used ?? 0);
+
+  // Per-section validity
+  const imageValid = !!selectedImageId && (
+    availableImages !== null
+      ? availableImages.some(img => img.id === selectedImageId)
+      : images.some(img => img.id === selectedImageId)
+  );
+  const computeValid = useMemo(() => {
+    const cpuVal = parseFloat(cpu);
+    const memVal = parseFloat(memory);
+    const gpuVal = parseInt(gpu, 10);
+    if (!cpu || isNaN(cpuVal) || cpuVal <= 0) return false;
+    if (!memory || isNaN(memVal) || memVal <= 0) return false;
+    if (gpu === '' || isNaN(gpuVal) || gpuVal < 0) return false;
+    if (application.max_cpu != null && cpuVal > application.max_cpu) return false;
+    if (application.max_memory != null && memVal > application.max_memory) return false;
+    if (application.max_gpu != null && gpuVal > application.max_gpu) return false;
+    return true;
+  }, [cpu, memory, gpu, application.max_cpu, application.max_memory, application.max_gpu]);
+  const userSyncValid = !syncUser || (userUid !== null && userGid !== null && !!userHomeDir);
+  const networkValid = useIndependentIp && !!ipAllocation?.has_ip;
+  const isFormValid = imageValid && computeValid && userSyncValid && networkValid;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validation
-    if (!selectedImageId) {
-      toast.error(t('imageRequired') || '请选择镜像');
-      return;
-    }
-
-    if (syncUser && (userUid === null || userGid === null)) {
-      toast.error('请先开通 HAI 算力集群账号后再保存配置');
-      return;
-    }
+    if (!isFormValid) return;
 
     setSaving(true);
     try {
@@ -381,10 +397,6 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
     }
   };
 
-  const cpuRemaining = (user?.cpu_quota ?? 0) - (user?.cpu_used ?? 0);
-  const memRemaining = (user?.memory_quota ?? 0) - (user?.memory_used ?? 0);
-  const gpuRemaining = (user?.gpu_quota ?? 0) - (user?.gpu_used ?? 0);
-
   // Application descriptions
   const descriptions: Record<string, string> = {
     openclaw: `OpenClaw是一款开源的AI智能体助手，能通过消息应用接收指令并直接执行任务。`,
@@ -401,9 +413,9 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
       )}
 
       {/* Section 1: Image Selection */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className={`bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border ${imageValid ? 'border-gray-200 dark:border-slate-700' : 'border-red-400 dark:border-red-500'}`}>
         <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
-          {t('imageSelection')}
+          {t('imageSelection')}<span className="ml-1 text-red-500">*</span>
         </label>
 
         {availableImages !== null ? (
@@ -543,10 +555,10 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
       </div>
 
       {/* Section 2: Compute Resources */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className={`bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border ${computeValid ? 'border-gray-200 dark:border-slate-700' : 'border-red-400 dark:border-red-500'}`}>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
-            {t('computeResources')}
+            {t('computeResources')}<span className="ml-1 text-red-500">*</span>
           </label>
           <button
             type="button"
@@ -632,9 +644,9 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
       </div>
 
       {/* Section 3: User Config */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className={`bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border ${userSyncValid ? 'border-gray-200 dark:border-slate-700' : 'border-red-400 dark:border-red-500'}`}>
         <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-3">
-          {t('userConfig') || '用户配置'}
+          {t('userConfig') || '用户配置'}<span className="ml-1 text-red-500">*</span>
         </label>
 
         {/* Root user row */}
@@ -683,7 +695,7 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
             className="rounded border-gray-300 dark:border-slate-600"
           />
           <label htmlFor="syncUser" className="text-sm text-gray-700 dark:text-slate-300 cursor-pointer select-none">
-            {t('syncUserToContainer') || '同步用户到容器'}
+            {t('syncUserToContainer') || '同步用户到容器（数据持久化）'}
           </label>
         </div>
 
@@ -889,11 +901,11 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
       </div>
 
       {/* Section 5: Network Config */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className={`bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border ${networkValid ? 'border-gray-200 dark:border-slate-700' : 'border-red-400 dark:border-red-500'}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            {t('networkConfig')}
+            {t('networkConfig')}<span className="ml-1 text-red-500">*</span>
           </label>
           <div className="flex items-center gap-1.5">
             <input
@@ -955,16 +967,19 @@ export default function AppConfigForm({ application, onSaveConfig, onCancel }: A
 
       {/* Action Buttons */}
       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 md:p-5 shadow-sm border border-gray-200 dark:border-slate-700">
-        {syncUser && (userUid === null || userGid === null) && (
-          <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-3">
-            请先开通 HAI 算力集群账号，再保存配置。
-          </p>
+        {!isFormValid && (
+          <ul className="text-xs text-red-500 dark:text-red-400 mb-3 space-y-0.5 list-disc list-inside">
+            {!imageValid && <li>请选择镜像</li>}
+            {!computeValid && <li>请填写有效的计算资源（CPU/内存须大于 0）</li>}
+            {!userSyncValid && <li>已开启同步用户，请先开通 HAI 算力集群账号</li>}
+            {!networkValid && <li>{useIndependentIp ? '已开启独立 IP，请先分配 IP 地址' : '请勾选"使用独立 IP"并分配 IP 地址'}</li>}
+          </ul>
         )}
         <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={saving || (syncUser && (userUid === null || userGid === null))}
-          title={syncUser && (userUid === null || userGid === null) ? '请先开通 HAI 算力集群账号' : undefined}
+          disabled={saving || !isFormValid}
+          title={!isFormValid ? '请完善上方必填项后再保存' : undefined}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save size={18} />

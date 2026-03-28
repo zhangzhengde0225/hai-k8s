@@ -182,6 +182,13 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/version")
+async def get_version():
+    """获取系统版本号"""
+    from version import __version__
+    return {"version": __version__}
+
+
 def custom_openapi():
     """自定义OpenAPI schema，添加安全配置"""
     if app.openapi_schema:

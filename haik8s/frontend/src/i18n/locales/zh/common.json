@@ -170,7 +170,7 @@
   "instanceCreatedSuccess": "实例创建成功",
   "settings": "设置",
   "personalSettings": "个人设置",
-  "contactUs": "联系我们",
+  "contactUs": "关于我们",
   "basicInfo": "基本信息",
   "accountInfo": "账号信息",
   "resourceQuota": "资源配额",
@@ -253,5 +253,11 @@
   "configSaveFailed": "保存失败",
   "containerNotRunning": "容器未运行",
   "loadingConfig": "加载配置中...",
-  "noAppDetails": "该应用暂无详情配置"
+  "noAppDetails": "该应用暂无详情配置",
+  "hepaiApiKey": "专属API-KEY",
+  "hepaiApiKeyNotSet": "未配置",
+  "hepaiKeySyncSuccess": "API Key 已同步",
+  "hepaiKeySyncFailed": "API Key 同步失败",
+  "syncing": "同步中...",
+  "sync": "同步"
 }

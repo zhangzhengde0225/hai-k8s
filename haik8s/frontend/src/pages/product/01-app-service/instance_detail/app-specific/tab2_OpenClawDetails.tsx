@@ -25,6 +25,10 @@ interface OpenClawConfig {
     bind?: string;
     auth?: { mode?: string; token?: string };
   };
+  plugins?: {
+    entries?: Record<string, { enabled?: boolean }>;
+    installs?: Record<string, any>;
+  };
 }
 
 export default function OpenClawDetails({ appId, appInfo, instance }: AppDetailsProps) {
@@ -114,6 +118,7 @@ export default function OpenClawDetails({ appId, appInfo, instance }: AppDetails
         config={config}
         instanceId={instance.id}
         appId={appId}
+        instance={instance}
         onConfigUpdate={loadConfig}
       />
     </div>

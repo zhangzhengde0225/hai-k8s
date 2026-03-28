@@ -1538,6 +1538,7 @@ class UpdateOpenClawConfigRequest(BaseModel):
     models: Optional[dict] = None
     channels: Optional[dict] = None
     agents: Optional[dict] = None
+    plugins: Optional[dict] = None
 
 
 @router.get("/{app_id}/openclaw-config")
@@ -1667,6 +1668,7 @@ async def get_openclaw_config(
             "channels": config_json.get("channels", {}),
             "agents": config_json.get("agents", {}),
             "gateway": config_json.get("gateway", {}),
+            "plugins": config_json.get("plugins", {}),
             "file_exists": True,
         }
 
@@ -1818,6 +1820,17 @@ async def update_openclaw_config(
                         base[k] = v
                 return base
             config_json["agents"] = deep_merge(merged_agents, request.agents)
+        if request.plugins is not None:
+            import copy
+            merged_plugins = copy.deepcopy(config_json.get("plugins", {}))
+            def deep_merge_plugins(base: dict, override: dict) -> dict:
+                for k, v in override.items():
+                    if isinstance(v, dict) and isinstance(base.get(k), dict):
+                        deep_merge_plugins(base[k], v)
+                    else:
+                        base[k] = v
+                return base
+            config_json["plugins"] = deep_merge_plugins(merged_plugins, request.plugins)
 
         # Write back configuration file
         new_config = json.dumps(config_json, indent=2)

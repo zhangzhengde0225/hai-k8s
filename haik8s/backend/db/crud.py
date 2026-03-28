@@ -131,6 +131,16 @@ def update_cluster_info(
     session.commit()
 
 
+def update_hepai_api_key(session: Session, user_id: int, api_key: Optional[str]) -> None:
+    """更新用户的 HepAI API Key"""
+    user = session.get(User, user_id)
+    if not user:
+        return
+    user.api_key_of_hepai = api_key
+    session.add(user)
+    session.commit()
+
+
 def list_users(session: Session) -> list[User]:
     return list(session.exec(select(User)).all())
 

@@ -18,18 +18,22 @@ export default function Profile() {
   const [ipAllocation, setIpAllocation] = useState<IPAllocation | null>(null);
   const [ipLoading, setIpLoading] = useState(false);
   const [syncClusterLoading, setSyncClusterLoading] = useState(false);
+  const [hepaiApiKey, setHepaiApiKey] = useState<string | null>(null);
+  const [hepaiKeyLoading, setHepaiKeyLoading] = useState(false);
 
   const fetchUser = async () => {
     setLoading(true);
     setError(false);
     try {
-      const [userRes, ipRes] = await Promise.allSettled([
+      const [userRes, ipRes, keyRes] = await Promise.allSettled([
         client.get<User>('/users/me'),
         client.get<IPAllocation>('/ip-allocations/my-ip'),
+        client.get<{ masked_key: string | null }>('/users/key'),
       ]);
       if (userRes.status === 'fulfilled') setUser(userRes.value.data);
       else setError(true);
       if (ipRes.status === 'fulfilled') setIpAllocation(ipRes.value.data);
+      if (keyRes.status === 'fulfilled') setHepaiApiKey(keyRes.value.data.masked_key);
     } finally {
       setLoading(false);
     }
@@ -75,6 +79,19 @@ export default function Profile() {
       toast.error(e.response?.data?.detail || t('syncClusterInfoFailed'));
     } finally {
       setSyncClusterLoading(false);
+    }
+  };
+
+  const handleSyncHepaiKey = async () => {
+    setHepaiKeyLoading(true);
+    try {
+      const res = await client.post<{ masked_key: string | null }>('/users/me/sync-hepai-key');
+      setHepaiApiKey(res.data.masked_key);
+      toast.success(t('hepaiKeySyncSuccess') || 'API Key synced');
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || t('hepaiKeySyncFailed') || 'Sync failed');
+    } finally {
+      setHepaiKeyLoading(false);
     }
   };
 
@@ -129,6 +146,24 @@ export default function Profile() {
           <Row label={t('username')} value={user.username} />
           <Row label={t('fullName')} value={user.full_name || '—'} />
           <Row label="Email" value={user.email} />
+          <Row
+            label={t('hepaiApiKey')}
+            value={
+              <span className="flex items-center gap-3">
+                <span className={hepaiApiKey ? 'font-mono' : ''}>
+                  {hepaiApiKey || t('hepaiApiKeyNotSet')}
+                </span>
+                <button
+                  onClick={handleSyncHepaiKey}
+                  disabled={hepaiKeyLoading}
+                  className="flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={hepaiKeyLoading ? 'animate-spin' : ''} />
+                  {hepaiKeyLoading ? t('syncing') : t('sync')}
+                </button>
+              </span>
+            }
+          />
         </Card>
 
         {/* 账号信息 */}

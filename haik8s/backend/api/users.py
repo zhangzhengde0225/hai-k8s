@@ -9,7 +9,8 @@ from sqlmodel import Session
 
 from db.database import get_session
 from db.models import User
-from db.crud import get_user_resource_usage, update_cluster_info
+from db.crud import get_user_resource_usage, update_cluster_info, update_hepai_api_key
+from config import Config
 from auth.dependencies import get_current_user
 from schemas.user import UserResponse
 
@@ -129,6 +130,56 @@ async def sync_cluster_info(
 @router.get("/key")
 async def get_user_key(current_user: User = Depends(get_current_user)):
     """返回当前用户的 HepAI API Key（full_key 用于脚本注入，masked_key 用于展示）"""
+    key = current_user.api_key_of_hepai
+    if not key:
+        return {"masked_key": None, "full_key": None}
+    if len(key) <= 8:
+        masked = "*" * len(key)
+    else:
+        masked = key[:4] + "****" + key[-4:]
+    return {"masked_key": masked, "full_key": key}
+
+
+@router.post("/me/sync-hepai-key")
+async def sync_hepai_key(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """从 HepAI 平台手动同步当前用户的 API Key"""
+    if not Config.HEPAI_SUBAPP_ADMIN_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="HepAI API key sync is not configured",
+        )
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://aiapi.ihep.ac.cn/apiv2/key/fetch_api_key",
+                json={"username": current_user.email},
+                headers={
+                    "Authorization": f"Bearer {Config.HEPAI_SUBAPP_ADMIN_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10.0,
+            )
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to fetch API key from HepAI platform",
+                )
+            data = resp.json()
+            api_key = data.get("api_key")
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to connect to HepAI platform: {exc}",
+        )
+
+    if api_key:
+        update_hepai_api_key(session, current_user.id, api_key)
+        session.refresh(current_user)
+
     key = current_user.api_key_of_hepai
     if not key:
         return {"masked_key": None, "full_key": None}

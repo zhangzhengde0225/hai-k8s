@@ -96,6 +96,40 @@ export default function AppService() {
   };
 
   const handleLaunchInstance = async (app: Application) => {
+    // Validate config completeness before launching
+    const config = app.config;
+    if (!config) {
+      toast.error('配置不完整，请先完成配置');
+      return;
+    }
+    if (!config.cpu_request || config.cpu_request <= 0 || !config.memory_request || config.memory_request <= 0) {
+      toast.error('配置不完整：计算资源无效，请重新配置');
+      return;
+    }
+    if (config.sync_user && (config.user_uid == null || config.user_gid == null)) {
+      toast.error('配置不完整：已开启同步用户但集群账号信息缺失，请重新配置');
+      return;
+    }
+    if (!config.bound_ip) {
+      toast.error('配置不完整：需要分配独立 IP，请重新配置');
+      return;
+    }
+    // Check that the configured image still exists and is available
+    try {
+      const imagesRes = await client.get('/images');
+      const images: any[] = imagesRes.data;
+      const availableImageIds = app.available_image_ids;
+      const imageExists = availableImageIds?.length
+        ? images.some((img: any) => img.id === config.image_id && availableImageIds.includes(img.id))
+        : images.some((img: any) => img.id === config.image_id);
+      if (!imageExists) {
+        toast.error('配置的镜像已不可用，请重新配置');
+        return;
+      }
+    } catch {
+      // 镜像检查失败时不阻塞启动
+    }
+
     setActionLoading(`launch-${app.id}`);
     try {
       const response = await client.post(`/applications/${app.id}/launch`, { count: 1 });
@@ -267,15 +301,15 @@ export default function AppService() {
                   </div>
                   {app.endpoint && app.status === 'running' ? (
                     <a
-                      href={app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}
+                      href={`https://${app.endpoint.replace(/^https?:\/\//, '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                      title={`访问 ${app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}`}
+                      title={`访问 https://${app.endpoint.replace(/^https?:\/\//, '')}`}
                     >
                       <Globe size={12} className="flex-shrink-0" />
                       <span className="truncate">
-                        {app.id === 'openclaw' ? `${app.endpoint}:18789` : app.endpoint}
+                        https://{app.endpoint.replace(/^https?:\/\//, '')}
                       </span>
                     </a>
                   ) : (

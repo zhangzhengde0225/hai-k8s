@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import client from '../../../api/client';
 import type { Image } from '../../../types';
 import toast from 'react-hot-toast';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, EyeOff, Eye } from 'lucide-react';
 
 export default function AdminImages() {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ export default function AdminImages() {
 
   const fetchImages = () => {
     client
-      .get('/images')
+      .get('/images', { params: { include_inactive: true } })
       .then((res) => setImages(res.data))
       .catch(() => toast.error('Failed to load images'))
       .finally(() => setLoading(false));
@@ -32,6 +32,16 @@ export default function AdminImages() {
       fetchImages();
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to deactivate');
+    }
+  };
+
+  const handleToggleActive = async (imageId: number, currentStatus: boolean) => {
+    try {
+      const res = await client.patch(`/images/${imageId}/toggle`);
+      toast.success(res.data.message);
+      fetchImages();
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to toggle status');
     }
   };
 
@@ -58,6 +68,7 @@ export default function AdminImages() {
               <th className="px-4 py-3">Tags</th>
               <th className="px-4 py-3">Registry URL</th>
               <th className="px-4 py-3">GPU</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -97,7 +108,25 @@ export default function AdminImages() {
                   )}
                 </td>
                 <td className="px-4 py-3">
+                  {img.is_active ? (
+                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full">
+                      Disabled
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => handleToggleActive(img.id, img.is_active)}
+                      className={`${img.is_active ? 'text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-600' : 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-600'} cursor-pointer`}
+                      title={img.is_active ? 'Disable' : 'Enable'}
+                    >
+                      {img.is_active ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
                     <button
                       onClick={() => navigate('/admin/images/add', { state: { image: img } })}
                       className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-600 cursor-pointer"

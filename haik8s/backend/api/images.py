@@ -39,11 +39,12 @@ def _image_to_response(image: Image) -> ImageResponse:
 
 @router.get("", response_model=list[ImageResponse])
 async def list_available_images(
+    include_inactive: bool = False,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """List active images"""
-    images = list_images(session, active_only=True)
+    """List images. Admins can include inactive images."""
+    images = list_images(session, active_only=not include_inactive)
     return [_image_to_response(img) for img in images]
 
 
@@ -164,3 +165,24 @@ async def delete_image_endpoint(
     if not delete_image(session, image_id):
         raise HTTPException(status_code=404, detail="Image not found")
     return {"message": "Image deactivated"}
+
+
+@router.patch("/{image_id}/toggle")
+async def toggle_image_status(
+    image_id: int,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    session: Session = Depends(get_session),
+):
+    """Toggle image active status (admin only)"""
+    image = session.get(Image, image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    image.is_active = not image.is_active
+    image.updated_at = datetime.utcnow()
+    session.add(image)
+    session.commit()
+    session.refresh(image)
+
+    status = "activated" if image.is_active else "deactivated"
+    return {"message": f"Image {status}", "is_active": image.is_active}

@@ -170,7 +170,7 @@
   "instanceCreatedSuccess": "instance created successfully",
   "settings": "Settings",
   "personalSettings": "Personal Settings",
-  "contactUs": "Contact Us",
+  "contactUs": "About Us",
   "basicInfo": "Basic Info",
   "accountInfo": "Account Info",
   "resourceQuota": "Resource Quota",
@@ -213,5 +213,11 @@
   "ipReleased": "IP released",
   "ipReleaseFailed": "Failed to release IP",
   "notSet": "Not set",
-  "fullName": "Full Name"
+  "fullName": "Full Name",
+  "hepaiApiKey": "专属API-KEY",
+  "hepaiApiKeyNotSet": "Not configured",
+  "hepaiKeySyncSuccess": "API Key synced",
+  "hepaiKeySyncFailed": "Failed to sync API Key",
+  "syncing": "Syncing...",
+  "sync": "Sync"
 }

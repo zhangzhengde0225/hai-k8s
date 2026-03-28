@@ -2,8 +2,11 @@
 Container API endpoints
 """
 import asyncio
+import concurrent.futures
+import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 
 from db.database import get_session
@@ -520,3 +523,92 @@ async def execute_command_in_container(
             status_code=500,
             detail=f"Failed to execute command: {str(e)}"
         )
+
+
+@router.get("/{container_id}/exec-stream")
+async def exec_stream_command(
+    container_id: int,
+    command: str = Query(..., description="要执行的命令"),
+    timeout: int = Query(300, description="超时时间（秒）"),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """流式执行命令，通过 SSE 实时推送 stdout/stderr 输出"""
+    container = get_container_by_id(session, container_id)
+    if not container or container.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    if container.status != ContainerStatus.RUNNING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Container must be running. Current status: {container.status.value}"
+        )
+
+    if not container.k8s_pod_name or not container.k8s_namespace:
+        raise HTTPException(status_code=400, detail="Container K8s information not available")
+
+    namespace = container.k8s_namespace
+    pod_name = container.k8s_pod_name
+
+    logger.info(f"[ExecStream] container_id={container_id}, user={current_user.username}, command={command!r}")
+
+    async def generate():
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def run_stream():
+            from k8s_service.client import get_core_v1
+            from kubernetes.stream import stream as k8s_stream
+            from kubernetes.client.rest import ApiException
+
+            v1 = get_core_v1()
+            exec_command = ["bash", "-c", command]
+            try:
+                resp = k8s_stream(
+                    v1.connect_get_namespaced_pod_exec,
+                    pod_name,
+                    namespace,
+                    command=exec_command,
+                    stderr=True,
+                    stdin=False,
+                    stdout=True,
+                    tty=False,
+                    _preload_content=False,
+                    _request_timeout=timeout,
+                )
+                while resp.is_open():
+                    resp.update(timeout=1)
+                    if resp.peek_stdout():
+                        data = resp.read_stdout()
+                        asyncio.run_coroutine_threadsafe(queue.put(("stdout", data)), loop)
+                    if resp.peek_stderr():
+                        data = resp.read_stderr()
+                        asyncio.run_coroutine_threadsafe(queue.put(("stderr", data)), loop)
+                resp.close()
+                asyncio.run_coroutine_threadsafe(queue.put(("done", "0")), loop)
+            except ApiException as e:
+                asyncio.run_coroutine_threadsafe(queue.put(("error", f"K8s API 错误: {e.reason}")), loop)
+                asyncio.run_coroutine_threadsafe(queue.put(("done", "1")), loop)
+            except Exception as e:
+                asyncio.run_coroutine_threadsafe(queue.put(("error", str(e))), loop)
+                asyncio.run_coroutine_threadsafe(queue.put(("done", "1")), loop)
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        loop.run_in_executor(executor, run_stream)
+
+        while True:
+            item = await queue.get()
+            channel, data = item
+            yield f"data: {json.dumps({'channel': channel, 'text': data})}\n\n"
+            if channel == "done":
+                break
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
