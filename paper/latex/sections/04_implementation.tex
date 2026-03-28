@@ -1,0 +1,83 @@
+\section{Implementation}
+\label{sec:implementation}
+
+\subsection{Technology Stack}
+
+Our platform is implemented using the following technologies:
+
+\begin{table}[htbp]
+    \centering
+    \caption{Technology stack.}
+    \label{tab:tech_stack}
+    \begin{tabular}{@{}ll@{}}
+        \toprule
+        \textbf{Layer} & \textbf{Technology} \\
+        \midrule
+        Backend API & FastAPI (Python 3.11) \\
+        K8s Client & kubernetes-python-client \\
+        Database & SQLite + SQLModel \\
+        Authentication & JWT (PyJWT) \\
+        Frontend & React + TypeScript + Vite \\
+        Container Runtime & Docker + containerd \\
+        Orchestration & Kubernetes \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Backend Components}
+
+The backend consists of several modules:
+
+\begin{itemize}
+    \item \textbf{API Layer} (\texttt{api/}): REST API endpoints for container and skill management
+    \item \textbf{Service Layer} (\texttt{k8s\_service/}): Kubernetes API integration, Pod exec interface
+    \item \textbf{Data Layer} (\texttt{db/}): SQLModel definitions and CRUD operations
+\end{itemize}
+
+\subsection{Key Implementation Details}
+
+\subsubsection{Two-Layer Authentication}
+The Skill API endpoint enforces two-factor authentication:
+
+\begin{lstlisting}[language=Python]
+# Layer 1: Admin API Key
+if x_admin_api_key != Config.HAI_K8S_ADMIN_API_KEY:
+    raise HTTPException(status_code=403)
+
+# Layer 2: User JWT (extracts user_id, verifies ownership)
+user = decode_jwt(authorization)
+if container.user_id != user.id:
+    raise HTTPException(status_code=403)
+\end{lstlisting}
+
+This ensures that only authorized Orchestrators can invoke Skills, and each user can only operate on their own containers.
+
+\subsubsection{Command Execution in Containers}
+We use Kubernetes' \texttt{Exec-API} to run commands inside agent containers:
+
+\begin{lstlisting}[language=Python]
+from kubernetes.stream import stream as k8s_stream
+
+resp = k8s_stream(
+    v1.connect_get_namespaced_pod_exec,
+    pod_name, namespace,
+    command=["bash", "-c", command],
+    stderr=True, stdout=True, stdin=False,
+    _preload_content=True, timeout=timeout
+)
+\end{lstlisting}
+
+The response includes stdout, stderr, and exit code, enabling the Orchestrator to determine success or failure.
+
+\subsubsection{OpenClaw Initialization Pipeline}
+The \texttt{openclaw-manager} Skill executes the following steps:
+
+\begin{enumerate}
+    \item \textbf{Onboard}: \texttt{openclaw onboard --non-interactive --accept-risk --flow quickstart \ldots}
+    \item \textbf{Enable Insecure HTTP}: \texttt{jq '.gateway.controlUi = {"allowInsecureAuth": true}' \ldots}
+    \item \textbf{Configure Models}: Fetch template, replace \texttt{\$\{HEPAI\_API\_KEY\}}, write to config
+    \item \textbf{Start Gateway}: \texttt{openclaw gateway --port 18789 --bind lan}
+\end{enumerate}
+
+\subsection{Deployment}
+The platform is deployed on a Kubernetes cluster. Current deployment serves researchers at our institution, with support for GPU-enabled nodes for compute-intensive agent workloads.

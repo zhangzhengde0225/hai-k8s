@@ -1,0 +1,30 @@
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+In this paper, we presented a containerized agent platform that enables multi-runtime multi-agent collaboration through hierarchical orchestration. Our key contributions are:
+
+\begin{enumerate}
+    \item \textbf{Agent-as-Container Abstraction}: We demonstrated that treating each agent runtime as an isolated Kubernetes container provides strong fault isolation, independent scalability, and natural security boundaries.
+    
+    \item \textbf{Multi-Runtime Architecture}: We designed and implemented a three-layer architecture (Orchestrator $\rightarrow$ Agent Runtime $\rightarrow$ Container Platform) that enables true parallel execution and heterogeneous agent coordination.
+    
+    \item \textbf{Skill Framework}: We proposed Skill as a first-class, standardized capability unit that allows an Orchestrator to invoke any agent runtime without knowledge of its internal APIs.
+    
+    \item \textbf{Security by Design}: Our containerized architecture directly addresses the security concerns raised by CNCERT/CERT, with experiments confirming that malicious Skills cannot escape their container boundary.
+    
+    \item \textbf{Production Deployment}: We implemented and deployed the platform, demonstrating practicality in a real research environment.
+\end{enumerate}
+
+\subsection{Future Work}
+Several directions remain open:
+
+\begin{itemize}
+    \item \textbf{Agent Migration}: Supporting live migration of agent state between containers for load balancing and fault recovery.
+    \item \textbf{Cross-Cluster Orchestration}: Extending the Orchestrator to coordinate agents across multiple clusters.
+    \item \textbf{Skill Marketplace}: A curated marketplace of verified, signed Skills addressing the CNCERT advisory.
+    \item \textbf{Formal Security Verification}: Formal analysis of container security under adversarial conditions.
+    \item \textbf{Performance Optimization}: Caching pre-initialized container images to reduce initialization time.
+\end{itemize}
+
+\subsection{Broader Impact}
+The Agent-as-Container abstraction has implications beyond our specific implementation. It suggests a path toward treating agents as managed computational resources---similar to how processes are managed by an OS---but with hardware-level isolation and cloud-native scalability. This could enable new classes of agent-based applications where agents are created, scheduled, and retired on demand.

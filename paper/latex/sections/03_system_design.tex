@@ -1,0 +1,177 @@
+\section{System Design}
+\label{sec:design}
+
+\subsection{Design Goals}
+
+Our design addresses five goals derived from the problems identified in Section 1.2:
+
+\begin{enumerate}
+    \item \textbf{Strong Isolation}: Each agent runtime must be isolated from others; a failure in one must not affect others.
+    \item \textbf{Independent Scalability}: Agent runtimes should be independently scalable based on demand.
+    \item \textbf{Standardized Orchestration}: An Orchestrator should be able to coordinate heterogeneous agent runtimes without knowing their internal implementation.
+    \item \textbf{Security by Design}: The architecture should mitigate the security risks identified by CNCERT/CERT.
+    \item \textbf{Agent-Native Abstractions}: The platform should provide abstractions (Skills, lifecycle management) tailored for agents.
+\end{enumerate}
+
+\subsection{Architecture Overview}
+
+We design a three-layer hierarchical architecture, as shown in Figure~\ref{fig:architecture}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/architecture.pdf}
+    \caption{Three-layer hierarchical architecture: Orchestrator, Agent Runtime, and Container Platform.}
+    \label{fig:architecture}
+\end{figure}
+
+\textbf{Orchestrator Layer}: The Orchestrator is itself an agent responsible for task decomposition, planning, and coordinating specialized agent runtimes through a standardized Skill interface.
+
+\textbf{Agent Runtime Layer}: Each agent runtime (OpenClaw, Claude Code, etc.) runs in its own container. Agents do not directly invoke each other; instead, they receive instructions from the Orchestrator and execute within their containerized environment.
+
+\textbf{Container Platform Layer}: Kubernetes manages the lifecycle, scheduling, networking, and security of each agent container.
+
+\subsection{Layer Responsibilities}
+
+\subsubsection{Orchestrator Layer}
+The Orchestrator performs high-level task coordination:
+\begin{itemize}
+    \item \textbf{Task Decomposition}: Breaks complex user requests into subtasks
+    \item \textbf{Skill Discovery}: Identifies which Skills are needed for each subtask
+    \item \textbf{Execution Scheduling}: Invokes Skills in the appropriate agent containers
+    \item \textbf{Result Aggregation}: Collects outputs from multiple agents
+\end{itemize}
+
+Critically, the Orchestrator does \textbf{not} execute tasks directly. Instead, it \textbf{dispatches} work to agent containers through Skills.
+
+\subsubsection{Agent Runtime Layer}
+Each agent container provides a complete agent runtime environment:
+\begin{itemize}
+    \item \textbf{OpenClaw Container}: OpenClaw runtime with memory, tools, and Skills
+    \item \textbf{Claude Code Container}: Claude Code runtime in a separate container
+    \item \textbf{Custom Agent Container}: Supports arbitrary agent runtimes
+\end{itemize}
+
+Agents are \textbf{specialized} and \textbf{stateless} regarding orchestration.
+
+\subsubsection{Container Platform Layer}
+Kubernetes provides:
+\begin{itemize}
+    \item \textbf{Lifecycle Management}: Create, start, stop, restart, and delete containers
+    \item \textbf{Resource Isolation}: CPU, memory, GPU limits per container
+    \item \textbf{Network Isolation}: Each container has its own network namespace
+    \item \textbf{Namespace Isolation}: Each user gets a dedicated K8s namespace
+    \item \textbf{Persistent Storage}: Volume mounts for agent memory and configuration
+\end{itemize}
+
+\subsection{Agent Lifecycle}
+
+Each agent instance follows a defined lifecycle:
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[node distance=1.5cm, auto]
+        \node[draw, rounded rectangle] (create) {CREATE};
+        \node[draw, rounded rectangle, right=of create] (init) {INITIALIZE};
+        \node[draw, rounded rectangle, right=of init] (running) {RUNNING};
+        \node[draw, rounded rectangle, right=of running] (stopped) {STOPPED};
+        \node[draw, rounded rectangle, right=of stopped] (delete) {DELETE};
+        
+        \draw[->] (create) -- (init);
+        \draw[->] (init) -- (running);
+        \draw[->] (running) -- (stopped);
+        \draw[->] (stopped) -- (delete);
+        
+        \draw[->, dashed] (running.north) .. controls +(0,0.5) and +(0,0.5) .. (create.north);
+    \end{tikzpicture}
+    \caption{Agent lifecycle state machine.}
+    \label{fig:lifecycle}
+\end{figure}
+
+\begin{enumerate}
+    \item \textbf{CREATE}: Kubernetes creates the Pod and container, allocates resources.
+    \item \textbf{INITIALIZE}: Agent-specific initialization runs (via Skill).
+    \item \textbf{RUNNING}: The agent is ready to receive and execute tasks.
+    \item \textbf{STOPPED}: The container is stopped but resources are retained.
+    \item \textbf{DELETE}: Resources are released.
+\end{enumerate}
+
+\subsection{Skill Framework}
+
+\subsubsection{What is a Skill?}
+A \textbf{Skill} is a standardized capability unit that exposes an agent's functionality to the Orchestrator:
+
+\begin{itemize}
+    \item \textbf{Name}: A unique identifier (e.g., \texttt{openclaw-manager}, \texttt{hai-k8s-container})
+    \item \textbf{Description}: Human- and machine-readable description of capabilities
+    \item \textbf{Interface}: Input parameters and output format
+    \item \textbf{Execution Endpoint}: Where and how the Skill is invoked
+\end{itemize}
+
+Unlike traditional tools (which are local extensions), Skills are \textbf{transportable} and \textbf{orchestrator-callable} across containers.
+
+\subsubsection{Skill Interface}
+Skills are invoked through a standardized API:
+
+\begin{verbatim}
+POST /api/skills/containers/{container_id}/exec
+Headers:
+  X-Admin-API-Key: <admin_key>
+  Authorization: Bearer <user_jwt>
+Body:
+  {"command": "<skill-specific-command>", "timeout": <seconds>}
+\end{verbatim}
+
+Two-factor authentication ensures that Skills can only be invoked by authorized callers on containers owned by the authenticated user.
+
+\subsubsection{hai-k8s-container Skill}
+Provides low-level container management:
+\begin{itemize}
+    \item \texttt{list\_containers()}: List user's containers
+    \item \texttt{get\_container()}: Get container details
+    \item \texttt{exec\_in\_container()}: Execute command inside container
+    \item \texttt{delete\_container()}: Stop and delete container
+\end{itemize}
+
+\subsubsection{openclaw-manager Skill}
+Provides OpenClaw-specific operations:
+\begin{itemize}
+    \item \texttt{init\_openclaw()}: Full 4-step initialization
+    \item \texttt{config\_models()}: Configure model providers
+    \item \texttt{get\_status()}: Check OpenClaw status
+\end{itemize}
+
+\subsection{Security Model}
+
+Our security architecture addresses the threats identified by CNCERT/CERT:
+
+\begin{itemize}
+    \item \textbf{Container Isolation}: Each agent runs in an isolated K8s Pod; compromise of one container does not grant access to others.
+    \item \textbf{Two-Layer Authentication}: Admin API Key + User JWT prevents unauthorized Skill invocation.
+    \item \textbf{User Namespace Isolation}: Each user operates within a dedicated K8s namespace.
+    \item \textbf{Capability Restrictions}: Non-root user, restricted Linux capabilities, read-only root filesystem.
+    \item \textbf{Audit Logging}: All Skill invocations and exec operations are logged.
+\end{itemize}
+
+\subsection{Comparison with Single-Runtime Architecture}
+
+Table~\ref{tab:comparison} summarizes the key differences.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Architectural comparison: Single-Runtime vs Multi-Runtime.}
+    \label{tab:comparison}
+    \begin{tabular}{@{}lcc@{}}
+        \toprule
+        \textbf{Dimension} & \textbf{Single-Runtime} & \textbf{Multi-Runtime (Ours)} \\
+        \midrule
+        Agent Isolation & Shared memory & Complete isolation \\
+        Concurrency & Pseudo-parallel & True parallel \\
+        Scalability & Modify process code & Register new container \\
+        Resource Control & Process limits & Kubernetes quotas \\
+        Security Boundary & Process & Container/Namespace \\
+        Agent Heterogeneity & Limited & Unlimited \\
+        Cold Start & Process fork & Pod creation \\
+        Orchestration & Function calls & Standardized Skill API \\
+        \bottomrule
+    \end{tabular}
+\end{table}

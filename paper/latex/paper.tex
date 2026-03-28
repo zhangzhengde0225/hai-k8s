@@ -1,0 +1,106 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{balance}
+
+% Page layout
+\usepackage[margin=1in]{geometry}
+
+% Spacing
+\usepackage{setspace}
+\doublespacing
+
+% Captions
+\usepackage[labelfont=bf]{caption}
+
+% References
+\usepackage{cite}
+
+% TikZ for diagrams (optional)
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds}
+
+% Colors
+\definecolor{ocn-blue}{RGB}{0,82,155}
+\definecolor{ocn-light}{RGB}{240,248,255}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=ocn-blue,
+    filecolor=ocn-blue,
+    urlcolor=ocn-blue,
+    citecolor=ocn-blue,
+}
+
+% Listings style
+\lstset{
+    backgroundcolor=\color{ocn-light},
+    frame=single,
+    frameround=tttt,
+    numbers=left,
+    stepnumber=1,
+    numbersep=5pt,
+    tabsize=2,
+    breaklines=true,
+    breakatwhitespace=true,
+    basicstyle=\ttfamily\small,
+}
+
+% Title
+\title{\textbf{Orchestrating Multi-Agent Collaboration through\\Containerized Agent Runtime}}
+
+% Authors
+\author{
+    白小心\thanks{中国科学院高能物理研究所} \\
+    \texttt{bai@ihep.ac.cn}
+    \and
+    朵拉 \\
+    \texttt{dora@ihep.ac.cn}
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Large Language Model (LLM) based agents are evolving from single-task systems to multi-agent collaborative frameworks. However, existing multi-agent systems typically operate within a single runtime (Single-Runtime Multi-Agent), where all agents share memory, tools, and process space. This architecture suffers from poor isolation, limited scalability, and security vulnerabilities.
+
+We present a containerized agent platform that introduces two key innovations. First, we propose \textbf{Agent-as-Container}: each agent runtime runs in an isolated Kubernetes pod, enabling true isolation, parallel execution, and independent scaling. Second, we design \textbf{Hierarchical Orchestration}: an orchestrator agent coordinates specialized agent runtimes through a standardized \textbf{Skill} interface, without requiring agents to directly invoke each other.
+
+Our implementation demonstrates that the containerized approach provides significantly faster cold-start compared to VM-based solutions, complete fault isolation (one agent's crash does not affect others), and natural security boundaries aligned with CERT/CNCERT recommendations for agent safety. Experiments show that the Multi-Runtime architecture achieves higher task success rates compared to Single-Runtime approaches, while the Skill-based orchestration substantially reduces cross-agent integration complexity.
+\end{abstract}
+
+\input{sections/01_introduction}
+\input{sections/02_background}
+\input{sections/03_system_design}
+\input{sections/04_implementation}
+\input{sections/05_evaluation}
+\input{sections/06_conclusion}
+\input{sections/07_related_work}
+
+% Bibliography
+\bibliographystyle{plain}
+\bibliography{references}
+
+% Appendix (optional)
+\appendix
+\input{sections/appendix}
+
+\end{document}

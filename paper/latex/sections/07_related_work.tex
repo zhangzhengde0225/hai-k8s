@@ -1,0 +1,38 @@
+\section{Related Work}
+\label{sec:related_work}
+
+Our work sits at the intersection of multi-agent frameworks, container orchestration, and agent security.
+
+\subsection{Multi-Agent Collaboration Frameworks}
+
+\textbf{AutoGen}~\citep{wu2023autogen} is a generic multi-agent conversation framework. It supports customizable agents with role-based conversations and tool use, but all agents typically run within the same Python process.
+
+\textbf{LangChain Agents}~\citep{langchain} provides a tool-augmented LLM agent framework with a modular architecture. Agents are composed through chains and run within the same process by default.
+
+\textbf{CrewAI}~\citep{crewai} implements a role-based multi-agent system where agents are assigned specific roles and collaborate through task decomposition.
+
+\textbf{MetaGPT}~\citep{hong2024metagpt} models multi-agent collaboration as a software development workflow using Standardized Operating Procedures (SOPs).
+
+\textbf{ChatDev}~\citep{qian2024chatdev} simulates a virtual software company with multiple agents playing roles throughout the development lifecycle.
+
+These frameworks operate in \textbf{Single-Runtime} mode where all agents share the same process space and memory.
+
+\textbf{OpenClaw} is a standalone autonomous AI agent that runs as an \textbf{independent process} with its own memory, tools, and Skills. Unlike the frameworks above, OpenClaw is a distinct agent runtime, not merely a framework for building agents. However, there is no native mechanism for OpenClaw to be orchestrated by an external orchestrator.
+
+\subsection{Container Orchestration}
+
+\textbf{Kubernetes}~\citep{brett2015kubernetes} has become the de facto standard for container orchestration. Its core abstractions (Pod, Namespace, Service, Deployment, ConfigMap/Secret) provide a mature foundation for managing containerized workloads with strong isolation guarantees.
+
+However, Kubernetes is a general-purpose orchestrator and does not provide agent-specific abstractions such as Skills, initialization workflows, or lifecycle management tailored for LLM agents.
+
+\subsection{Agent Security}
+
+The CNCERT/CERT advisory on OpenClaw security risks~\citep{cncert2026openclaw} identified four major threat categories and recommended container-based isolation as a primary mitigation strategy. Our work directly addresses these recommendations by providing container-level isolation for each agent runtime.
+
+\subsection{Agent Lifecycle and Skill Management}
+
+OpenClaw Skills, LangChain Tools, and AutoGen Plugins are all \textbf{local} to their parent agent---they cannot be transparently invoked from a different process or container. Our Skill abstraction extends this by making Skills \textbf{transportable} and \textbf{orchestrator-callable} through a standardized API.
+
+\subsection{Gap Analysis}
+
+As discussed in Section~\ref{sec:background}, there is no prior work that systematically proposes treating each agent runtime as an independent container with Kubernetes-level resource management, lifecycle isolation, and orchestration through a standardized Skill interface. Our work bridges this gap.

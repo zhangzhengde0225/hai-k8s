@@ -1,0 +1,67 @@
+\section{Background and Related Work}
+\label{sec:background}
+
+\subsection{Multi-Agent Collaboration Systems}
+
+Multi-agent collaboration has emerged as a key paradigm for handling complex tasks that require diverse capabilities. Several frameworks have been proposed to facilitate coordination among multiple agents.
+
+\subsubsection{Single-Runtime Multi-Agent Frameworks}
+
+\textbf{AutoGen}~\citep{wu2023autogen} is a generic multi-agent conversation framework where agents communicate through messages. It supports role-based conversations but typically runs all agents within the same Python process.
+
+\textbf{LangChain Agents}~\citep{langchain} offers a tool-augmented LLM agent framework with support for multi-agent orchestration through predefined agent types. Agents share a common tool registry within the same process.
+
+\textbf{CrewAI}~\citep{crewai} implements a role-based multi-agent system where agents are assigned specific roles (e.g., researcher, coder) and collaborate through task decomposition. All agents operate within the same runtime context.
+
+\textbf{MetaGPT}~\citep{hong2024metagpt} models multi-agent collaboration as a software development workflow, with agents playing roles like architect, engineer, and reviewer, communicating through a shared message pool.
+
+\textbf{ChatDev}~\citep{qian2024chatdev} simulates a virtual software company with multiple agents playing roles in a software development process.
+
+These frameworks share a common characteristic: they operate in a \textbf{Single-Runtime} mode, where all participating agents share the same process space, memory, and execution context.
+
+\subsubsection{OpenClaw as a Standalone Agent Runtime}
+
+\textbf{OpenClaw} is a standalone autonomous AI agent that controls computers through natural language instructions. Unlike the frameworks above (which run all agents within a single process), an OpenClaw instance runs as an \textbf{independent process} with its own memory, tools, and Skills. This makes OpenClaw a distinct \textbf{agent runtime}, not merely a framework for building agents.
+
+However, this independence also creates a \textbf{coordination problem}: there is no native mechanism for one OpenClaw instance to invoke another, or to be orchestrated by an external orchestrator. OpenClaw's primary mode of operation is standalone.
+
+\subsubsection{Multi-Runtime Approaches}
+
+To the best of our knowledge, no prior work has systematically proposed \textbf{treating each agent runtime as an independent container} with Kubernetes-level resource management, lifecycle isolation, and orchestration through a standardized Skill interface.
+
+\subsection{Container Orchestration}
+
+\textbf{Kubernetes} (K8s) has become the de facto standard for container orchestration. Its core abstractions include:
+
+\begin{itemize}
+    \item \textbf{Pod}: The smallest deployable unit, representing a group of containers that share network and storage
+    \item \textbf{Namespace}: Provides resource isolation and access control between different teams or projects
+    \item \textbf{Service}: Load-balances traffic to a set of pods
+    \item \textbf{Deployment}: Manages the desired state of replicated pods
+    \item \textbf{ConfigMap/Secret}: Manages configuration and sensitive data separately from application code
+\end{itemize}
+
+These primitives are well-suited for managing agent runtimes as infrastructure.
+
+\subsection{Agent Security}
+
+In March 2026, CNCERT and the China Cyberspace Security Association issued a joint advisory on security risks associated with OpenClaw-style agent systems~\citep{cncert2026openclaw}. The advisory identified four major risk categories:
+
+\begin{enumerate}
+    \item \textbf{Prompt Injection}: Hidden malicious instructions in web content
+    \item \textbf{Misoperation Hazards}: Agents misunderstanding user intent
+    \item \textbf{Skills Plugin Poisoning}: Malicious or tampered skills exfiltrating keys
+    \item \textbf{Unpatched Vulnerabilities}: Known security vulnerabilities in agent frameworks
+\end{enumerate}
+
+The advisory explicitly recommends \textbf{container-based isolation} as a primary mitigation: ``每个用户使用独立环境'' (each user operates in an independent environment).
+
+\subsection{Gap Analysis}
+
+Based on the above review, we identify a clear gap in the literature:
+
+\begin{quote}
+\textit{There is no systematic approach to running multiple heterogeneous agent runtimes (e.g., OpenClaw, Claude Code) in isolated containers, coordinated by an Orchestrator through a standardized Skill interface, with security isolation directly addressing the threats identified by CERT/CNCERT.}
+\end{quote}
+
+Existing multi-agent frameworks assume homogeneous agents in a shared runtime. Container orchestration systems are not designed with agent-specific abstractions. Our work bridges this gap by proposing the \textbf{Agent-as-Container} abstraction and the \textbf{Multi-Runtime Multi-Agent} architecture.

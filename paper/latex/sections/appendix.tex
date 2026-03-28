@@ -1,0 +1,45 @@
+\section*{Appendix}
+
+\subsection{Available Skills}
+
+Our platform currently provides two production-ready Skills:
+
+\subsubsection{hai-k8s-container}
+
+Provides low-level container management operations:
+
+\begin{itemize}
+    \item \texttt{list\_containers()}: List all containers for the authenticated user
+    \item \texttt{get\_container(id)}: Get detailed container information
+    \item \texttt{exec\_in\_container(id, command, timeout)}: Execute command in running container
+    \item \texttt{delete\_container(id)}: Stop and delete a container
+\end{itemize}
+
+Location: \texttt{skills/hai-k8s-container/}
+
+\subsubsection{openclaw-manager}
+
+Provides OpenClaw-specific operations:
+
+\begin{itemize}
+    \item \texttt{init\_openclaw(container\_id, api\_key)}: Execute full 4-step OpenClaw initialization
+    \item \texttt{config\_models(container\_id, api\_key)}: Configure model providers with API key replacement
+    \item \texttt{get\_status(container\_id)}: Check OpenClaw status (onboard, gateway, config)
+\end{itemize}
+
+Location: \texttt{skills/openclaw-manager/}
+
+\subsection{API Reference}
+
+Full API documentation is available at \url{https://github.com/zdzhang/hai-k8s/docs/api.md}.
+
+\subsection{Benchmark Scripts}
+
+Automated measurement scripts are available in \texttt{../benchmarks/}:
+
+\begin{itemize}
+    \item \texttt{measure\_cold\_start.py}: Measure OpenClaw initialization time breakdown
+    \item \texttt{test\_isolation.py}: Simulate malicious Skill attack inside container
+\end{itemize}
+
+These scripts require hai-k8s backend access and K8s cluster access.
