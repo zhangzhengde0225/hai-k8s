@@ -10,7 +10,7 @@ export default function ContactUs() {
   const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
-    client.get('/api/version').then((res) => setVersion(res.data.version)).catch(() => {});
+    client.get('/version').then((res) => setVersion(res.data.version)).catch(() => {});
   }, []);
 
   return (
