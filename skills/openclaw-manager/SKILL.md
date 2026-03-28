@@ -66,6 +66,33 @@ Body: {
 }
 ```
 
+## 封装脚本
+
+推荐使用封装脚本执行完整初始化：
+
+### 完整初始化
+```bash
+python3 scripts/init_openclaw.py <container_id> <hepai_api_key> \
+    --admin-api-key <key> \
+    --user-jwt <token> \
+    [--gateway-password <pwd>] \
+    [--format json|text]
+```
+
+### 仅配置模型
+```bash
+python3 scripts/config_models.py <container_id> <hepai_api_key> \
+    --admin-api-key <key> \
+    --user-jwt <token>
+```
+
+### 检查状态
+```bash
+python3 scripts/get_status.py <container_id> \
+    --admin-api-key <key> \
+    --user-jwt <token>
+```
+
 ## 初始化状态检查
 
 每步执行后检查返回的 `exit_code`：

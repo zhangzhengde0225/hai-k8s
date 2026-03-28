@@ -730,3 +730,56 @@ async def admin_execute_command_in_container(
             status_code=500,
             detail=f"Failed to execute command: {str(e)}"
         )
+
+
+@skills_router.get("/applications/{app_id}/config-template")
+async def get_app_config_template(
+    app_id: str,
+    x_admin_api_key: str = Header(..., description="Admin API Key"),
+    current_user: User = Depends(get_current_user_from_jwt),
+    session: Session = Depends(get_session),
+):
+    """
+    获取应用的配置模板（供 Agent/Skill 使用）
+
+    两层认证后，返回应用的 models_config_template 和 startup_scripts_config。
+
+    注意：此接口验证用户身份但不限制用户访问（应用配置模板是全局的），
+    实际权限控制在 exec 接口（容器所有权验证）。
+    """
+    # 第一层认证
+    if not Config.HAI_K8S_ADMIN_API_KEY:
+        raise HTTPException(status_code=501, detail="Admin API Key not configured")
+    if x_admin_api_key != Config.HAI_K8S_ADMIN_API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid Admin API Key")
+
+    from sqlmodel import select
+    from db.models import ApplicationDefinition
+
+    app_def = session.exec(
+        select(ApplicationDefinition).where(ApplicationDefinition.app_id == app_id)
+    ).first()
+
+    if not app_def:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    models_template = None
+    if app_def.models_config_template:
+        try:
+            models_template = json.loads(app_def.models_config_template)
+        except json.JSONDecodeError:
+            models_template = app_def.models_config_template
+
+    startup_scripts = None
+    if app_def.startup_scripts_config:
+        try:
+            startup_scripts = json.loads(app_def.startup_scripts_config)
+        except json.JSONDecodeError:
+            startup_scripts = app_def.startup_scripts_config
+
+    return {
+        "app_id": app_def.app_id,
+        "name": app_def.name,
+        "models_config_template": models_template,
+        "startup_scripts_config": startup_scripts,
+    }
