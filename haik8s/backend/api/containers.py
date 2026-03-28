@@ -5,9 +5,10 @@ import asyncio
 import concurrent.futures
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session
+from typing import Optional
 
 from db.database import get_session
 from db.models import User, ContainerStatus
@@ -21,6 +22,7 @@ from db.crud import (
     get_image_by_id,
 )
 from auth.dependencies import get_current_user
+from auth.security import decode_access_token
 from schemas.container import CreateContainerRequest, ContainerResponse, ContainerDetailResponse, ExecCommandRequest, ExecCommandResponse
 from config import Config
 from k8s_service.client import ensure_namespace
@@ -612,3 +614,119 @@ async def exec_stream_command(
             "Connection": "keep-alive",
         },
     )
+
+
+# ==================== Skill Agent API (Two-Layer Auth) ====================
+# Admin API Key + User JWT for agent/skill calling
+
+async def get_current_user_from_jwt(
+    authorization: str = Header(..., description="Bearer JWT token"),
+    session: Session = Depends(get_session),
+) -> User:
+    """
+    Extract user from JWT token (used in two-layer auth).
+    Validates that the token is valid and returns the associated user.
+    """
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+        )
+    token = authorization[7:]
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    user = session.get(User, int(user_id))
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+    return user
+
+
+skills_router = APIRouter(prefix="/api/skills", tags=["Skills"])
+
+
+@skills_router.post("/containers/{container_id}/exec", response_model=ExecCommandResponse)
+async def admin_execute_command_in_container(
+    container_id: int,
+    req: ExecCommandRequest,
+    x_admin_api_key: str = Header(..., description="Admin API Key for skill authentication"),
+    current_user: User = Depends(get_current_user_from_jwt),
+    session: Session = Depends(get_session),
+):
+    """
+    在容器中执行命令（供 Agent/Skill 调用的管理员接口）
+
+    两层认证：
+    1. X-Admin-API-Key: 共享的管理员 API Key，验证调用者是合法的 Agent/Skill
+    2. Authorization: Bearer <jwt>: 用户的 JWT Token，验证操作权限（容器必须属于该用户）
+
+    注意：此功能需要容器处于 Running 状态
+    """
+    # 第一层认证：验证 Admin API Key
+    if not Config.HAI_K8S_ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Admin API Key not configured on server",
+        )
+    if x_admin_api_key != Config.HAI_K8S_ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid Admin API Key",
+        )
+
+    # 第二层认证：验证容器所有权（通过 JWT 中的 user_id）
+    container = get_container_by_id(session, container_id)
+    if not container or container.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Container not found")
+
+    # 验证容器状态
+    if container.status != ContainerStatus.RUNNING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Container must be running to execute commands. Current status: {container.status.value}"
+        )
+
+    # 验证 K8s 信息
+    if not container.k8s_pod_name or not container.k8s_namespace:
+        raise HTTPException(status_code=400, detail="Container K8s information not available")
+
+    # 导入命令执行接口
+    from k8s_service.pods.interface import execute_command_with_separate_streams
+
+    logger.info(f"[SkillExec] container_id={container_id}, user={current_user.username}, command={req.command!r}")
+
+    try:
+        result = execute_command_with_separate_streams(
+            namespace=container.k8s_namespace,
+            pod_name=container.k8s_pod_name,
+            command=req.command,
+            timeout=req.timeout,
+        )
+
+        return ExecCommandResponse(
+            success=result.success,
+            output=result.stdout,
+            error=result.stderr or result.error_message,
+            exit_code=result.exit_code,
+            message=result.error_message if not result.success else "命令执行成功",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute command: {str(e)}"
+        )

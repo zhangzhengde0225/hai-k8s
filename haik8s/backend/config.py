@@ -50,6 +50,9 @@ class Config:
     # HepAI
     HEPAI_SUBAPP_ADMIN_KEY: str = os.getenv("HEPAI_SUBAPP_ADMIN_KEY", "")
 
+    # Admin API Key for skill/agent authentication (two-layer auth)
+    HAI_K8S_ADMIN_API_KEY: str = os.getenv("HAI_K8S_ADMIN_API_KEY", "")
+
     # CORS
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
         "http://localhost:42901",

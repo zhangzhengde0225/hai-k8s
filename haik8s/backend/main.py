@@ -25,7 +25,7 @@ from k8s_service.client import init_k8s_client
 # Import routers
 from auth.sso_router import router as sso_router
 from auth.local_router import router as local_router
-from api.containers import router as containers_router
+from api.containers import router as containers_router, skills_router
 from api.terminal import router as terminal_router
 from api.users import router as users_router
 from api.images import router as images_router
@@ -151,6 +151,7 @@ app.add_middleware(
 app.include_router(sso_router)
 app.include_router(local_router)
 app.include_router(containers_router)
+app.include_router(skills_router)
 app.include_router(terminal_router)
 app.include_router(users_router)
 app.include_router(images_router)
