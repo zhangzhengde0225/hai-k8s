@@ -11,7 +11,7 @@ Date: 2026-03-28
 
 Large Language Model (LLM) based agents are evolving from single-task systems to multi-agent collaborative frameworks. However, existing multi-agent systems typically operate within a single runtime (Single-Runtime Multi-Agent), where all agents share memory, tools, and process space. This architecture suffers from poor isolation, limited scalability, and security vulnerabilities.
 
-We present HAI-K8S, a containerized agent platform that introduces two key innovations. First, we propose **Agent-as-Container**: each agent runtime runs in an isolated Kubernetes pod, enabling true isolation, parallel execution, and independent scaling. Second, we design **Hierarchical Orchestration**: an orchestrator agent (drsai) coordinates specialized agent runtimes (OpenClaw, Claude Code, etc.) through a standardized **Skill** interface, without requiring agents to directly invoke each other.
+We present HAI-K8S, a containerized agent platform that introduces two key innovations. First, we propose **Agent-as-Container**: each agent runtime runs in an isolated Kubernetes pod, enabling true isolation, parallel execution, and independent scaling. Second, we design **Hierarchical Orchestration**: an orchestrator agent (DORA) coordinates specialized agent runtimes (OpenClaw, Claude Code, etc.) through a standardized **Skill** interface. A key benefit: users interact only with DORA, which handles task decomposition, agent dispatch, and result aggregation.
 
 Our implementation demonstrates that the containerized approach provides **5x faster cold-start** (4-15s vs 20-45s for VM-based solutions), **complete fault isolation** (one agent's crash does not affect others), and **natural security boundaries** aligned with CERT/CNCERT recommendations for agent safety.
 
@@ -21,9 +21,9 @@ Experiments on multi-agent collaboration tasks show that our Multi-Runtime archi
 
 **草稿版本 2（强调解决问题）**
 
-Multi-agent collaboration has become a key paradigm for complex task completion. However, existing frameworks face a fundamental limitation: they assume all agents run within a single runtime, creating tight coupling, poor isolation, and security risks.
+Multi-agent collaboration has become a key paradigm for complex task completion. However, existing frameworks face a fundamental limitation: users must coordinate multiple agents manually, deciding which agent should handle which task and how to aggregate results.
 
-We introduce HAI-K8S, a Kubernetes-based platform that enables **Multi-Runtime Multi-Agent collaboration**. Our approach treats each agent runtime as an isolated container, with an Orchestrator agent coordinating their execution. We further propose **Skill as a first-class citizen**: standardized capability units that allow an orchestrator to invoke any agent runtime without knowing its internal APIs.
+We introduce HAI-K8S, a Kubernetes-based platform that enables **Multi-Runtime Multi-Agent collaboration**. Our approach treats each agent runtime as an isolated container, with DORA---an Orchestrator agent---coordinating their execution through a standardized **Skill** interface. The user interacts only with DORA; DORA handles task decomposition, agent dispatch, and result aggregation.
 
 HAI-K8S directly addresses the security concerns raised by CNCERT/CERT regarding LLM agents by providing container-level isolation for each agent runtime. Our system has been operational since [year], serving [N] researchers with [M] concurrent agent instances.
 
@@ -31,7 +31,7 @@ Benchmarks show: (1) Agent cold-start latency of 4-15 seconds, dominated by appl
 
 ---
 
-**推荐版本 1**，理由：亮点更突出，数据更具体。
+**推荐版本 2**，理由：更直接回应用户痛点（"我不想分别跟每个 Agent 打交道"）。
 
 ---
 
@@ -41,9 +41,9 @@ Benchmarks show: (1) Agent cold-start latency of 4-15 seconds, dominated by appl
 
 近年来，基于大语言模型（LLM）的智能体（Agent）技术快速发展。从早期的单一任务执行，发展到如今的多智能体协作框架，智能体正在成为人机交互和自动化任务执行的重要范式。
 
-然而，现有的多智能体协作方案存在一个根本性限制：**所有智能体通常运行在同一个运行时（runtime）内**。例如，AutoGen、LangChain Agents、CrewAI 等主流框架都采用 Single-Runtime Multi-Agent 架构，多个智能体共享同一进程空间、内存和工具注册表。
+然而，现有的多智能体协作方案存在一个根本性限制：**用户必须手动协调多个智能体**。例如，一个研究人员需要 OpenClaw 处理日常任务、Claude Code 编写代码、drsai 做物理分析。用户需要自己决定：哪个智能体应该处理哪个任务？如何汇总结果？随着智能体数量增加，这个协调负担呈指数增长。
 
-这种架构带来了三个核心问题：
+另一方面，AutoGen、LangChain Agents、CrewAI 等主流框架都采用 Single-Runtime Multi-Agent 架构，多个智能体共享同一进程空间、内存和工具注册表。这种架构带来了三个核心问题：
 
 1. **隔离性差**：一个智能体的崩溃或内存泄漏会级联影响其他智能体
 2. **可扩展性差**：增加新的智能体类型需要修改主进程代码
@@ -69,9 +69,11 @@ Benchmarks show: (1) Agent cold-start latency of 4-15 seconds, dominated by appl
 
 3. **Hierarchical Orchestration**：设计了 Orchestrator-Agent 两层协作模式，通过 Skill 接口标准化智能体能力，使 Orchestrator 能够统一调度不同类型的 Agent Runtime。
 
-4. **Skill 框架**：实现了 hai-k8s-container 和 openclaw-manager 两个生产可用的 Skill，为智能体提供了可被发现、可被描述、可被调用的标准化能力单元。
+4. **DORA 示范应用**：实现了 DORA，一个能够协调 OpenClaw、Claude Code、drsai 的 Orchestrator。用户只跟 DORA 说话，DORA 处理任务分解、智能体调度和结果聚合。
 
-5. **安全隔离**：容器化设计直接回应了 CNCERT 的安全建议，实验证明恶意 Skills 无法横向扩散到其他用户的容器。
+5. **Skill 框架**：实现了 hai-k8s-container 和 openclaw-manager 两个生产可用的 Skill，为智能体提供了可被发现、可被描述、可被调用的标准化能力单元。
+
+6. **安全隔离**：容器化设计直接回应了 CNCERT 的安全建议，实验证明恶意 Skills 无法横向扩散到其他用户的容器。
 
 ### 1.4 论文结构（Organization）
 
